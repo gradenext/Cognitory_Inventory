@@ -9,7 +9,7 @@ const questionSchema = new mongoose.Schema(
     },
     textType: {
       type: String,
-      enum: ["text", "markdown"],
+      enum: ["text", "markdown", "latex"],
       required: true,
     },
     image: {
@@ -80,6 +80,10 @@ const questionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Level",
       required: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
     },
   },
   {

@@ -5,6 +5,14 @@ const approvalSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  approvedAt: {
+    type: Date,
+    default: null,
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
   comment: {
     type: String,
     default: "",
