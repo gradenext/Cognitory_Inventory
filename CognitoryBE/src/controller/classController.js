@@ -1,75 +1,108 @@
 import mongoose from "mongoose";
 import Class from "../models/Class.js";
 import Enterprise from "../models/Enterprise.js";
+import { verifyModelReferences } from "../helper/referenceCheck.js";
+import isValidMongoId from "../helper/isMongoId.js";
+import handleSuccess from "../helper/handleSuccess.js";
+import handleError from "../helper/handleError.js";
+import { validateWithZod } from "../validations/validate.js";
+import { classSchema } from "../validations/class.js";
 
 export const createClass = async (req, res) => {
   const session = await mongoose.startSession();
+  let transactionStarted = false;
 
   try {
     const { name, enterpriseId } = req.body;
 
-    if (!name) {
-      return res.status(403).json({
-        success: false,
-        message: "Class name is required",
-      });
-    }
-
-    if (!enterpriseId) {
-      return res.status(403).json({
-        success: false,
-        message: "Enterprise ID is required",
-      });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(enterpriseId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Enterprise ID",
-      });
-    }
-
-    session.startTransaction();
-
-    const enterprise = await Enterprise.findById(enterpriseId).session(session);
-    if (!enterprise) {
-      return res.status(404).json({
-        success: false,
-        message: "Enterprise does not exist",
-      });
-    }
-
-    const [newClass] = await Class.create([{ name, enterpriseId }], {
-      session,
+    const validationResult = validateWithZod(classSchema, {
+      name,
+      enterpriseId,
     });
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
+    const refsToCheck = [
+      { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
+    ];
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    await session.startTransaction();
+    transactionStarted = true;
+
+    const notExistIds = await verifyModelReferences(session, refsToCheck);
+    if (notExistIds.length > 0) {
+      if (transactionStarted) {
+        await session.abortTransaction();
+      }
+      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
+    }
+
+    const [newClass] = await Class.create(
+      [{ name, enterprise: enterpriseId }],
+      {
+        session,
+      }
+    );
+
+    // Push new class ID into Enterprise's classIds array
+    await Enterprise.findByIdAndUpdate(
+      enterpriseId,
+      { $push: { classes: newClass._id } },
+      { session }
+    );
+
+    const populatedClass = await Class.findById(newClass._id)
+      .populate("enterprise", "name slug email image classes _id")
+      .session(session);
 
     await session.commitTransaction();
-    session.endSession();
+    transactionStarted = false;
 
-    res.status(201).json({
-      success: true,
-      message: "Class created successfully",
-      class: newClass,
-    });
+    return handleSuccess(
+      res,
+      populatedClass,
+      `Class added successfully to Enterprise ${populatedClass?.enterprise?.name}`,
+      201
+    );
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
+    if (transactionStarted) {
+      await session.abortTransaction();
+    }
 
-    console.error("Create class error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to create class",
-      error: err.message,
-    });
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return handleError(
+        res,
+        {},
+        `Class with given name already exist in the Enterprise`,
+        409
+      );
+    } else {
+      console.error("Create class error:", err);
+      return handleError(res, err, "Failed to create class", 500);
+    }
+  } finally {
+    await session.endSession();
   }
 };
 
 export const getAllClasses = async (req, res) => {
   try {
-    const classes = await Class.find().populate("enterpriseId");
-    res.json(classes);
+    const classes = await Class.find();
+
+    return handleSuccess(res, { classes }, "Classes fetched successfully", 201);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return handleError(res, err, "Failed to fetch classes", 500);
   }
 };
 

@@ -5,6 +5,13 @@ const levelSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, trim: true },
+    rank: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 10,
+      unique: true,
+    },
     enterprise: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Enterprise",
@@ -39,6 +46,8 @@ const levelSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+levelSchema.index({ slug: 1, subtopic: 1, rank: 1 }, { unique: true });
 
 levelSchema.pre("validate", function (next) {
   if (!this.slug && this.name) {

@@ -12,17 +12,18 @@ const questionSchema = new mongoose.Schema(
       enum: ["text", "markdown", "latex"],
       required: true,
     },
-    image: {
-      type: String,
-      trim: true,
-      default: "",
-    },
+    image: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     type: {
       type: String,
       enum: ["input", "multiple"],
       required: true,
     },
-    option: {
+    options: {
       type: [String],
       minLength: 4,
       maxLength: 4,
@@ -42,41 +43,41 @@ const questionSchema = new mongoose.Schema(
       trim: true,
       required: true,
     },
-    creatorId: {
+    creator: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    reviewId: {
+    review: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Review",
     },
-    enterpriseId: {
+    enterprise: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Enterprise",
       required: true,
     },
-    classId: {
+    class: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Class",
       required: true,
     },
-    subjectId: {
+    subject: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subject",
       required: true,
     },
-    topicId: {
+    topic: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Topic",
       required: true,
     },
-    subtopicId: {
+    subtopic: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subtopic",
       required: true,
     },
-    levelId: {
+    level: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Level",
       required: true,

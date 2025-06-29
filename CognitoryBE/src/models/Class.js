@@ -26,6 +26,8 @@ const classSchema = new mongoose.Schema(
   }
 );
 
+classSchema.index({ slug: 1, enterprise: 1 }, { unique: true });
+
 classSchema.pre("validate", function (next) {
   if (!this.slug && this.name) {
     this.slug = slugify(this.name, { lower: true, strict: true });

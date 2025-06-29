@@ -6,7 +6,7 @@ import Subject from "../models/Subject.js";
 import Topic from "../models/Topic.js";
 import Subtopic from "../models/Subtopic.js";
 import Level from "../models/Level.js";
-import { addQuestionSchema } from "../validations/question.js";
+import { questionSchema } from "../validations/question.js";
 import { validateWithZod } from "../validations/validate.js";
 import handleError from "../helper/handleError.js";
 import handleSuccess from "../helper/handleSuccess.js";
@@ -19,7 +19,7 @@ export const createQuestion = async (req, res) => {
   let transactionStarted = false;
 
   try {
-    const validationResult = validateWithZod(addQuestionSchema, req.body);
+    const validationResult = validateWithZod(questionSchema, req.body);
     if (!validationResult.success) {
       return handleError(
         res,

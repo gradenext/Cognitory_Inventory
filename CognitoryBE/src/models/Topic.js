@@ -4,7 +4,7 @@ import slugify from "slugify";
 const topicSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    slug: { type: String, required: true, trim: true },
+    slug: { type: String, required: true, trim: true, unique: true },
     enterprise: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Enterprise",
@@ -35,6 +35,8 @@ const topicSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+topicSchema.index({ slug: 1, subject: 1 }, { unique: true });
 
 topicSchema.pre("validate", function (next) {
   if (!this.slug && this.name) {

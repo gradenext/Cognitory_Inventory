@@ -6,11 +6,12 @@ export const questionSchema = z
       .string({ required_error: "Question text is required" })
       .min(1, "Question text cannot be empty"),
 
-    textType: z.enum(["text", "markdown"], {
+    textType: z.enum(["text", "markdown", "latex"], {
       errorMap: () => ({
         message: "Text type must be either 'text' or 'markdown'",
       }),
     }),
+    image: z.array(z.url()).optional(),
 
     type: z.enum(["input", "multiple"], {
       errorMap: () => ({
@@ -18,7 +19,7 @@ export const questionSchema = z
       }),
     }),
 
-    option: z.array(z.string()).optional(),
+    options: z.array(z.string()).optional(),
 
     answer: z
       .string({ required_error: "Answer is required" })
@@ -32,39 +33,37 @@ export const questionSchema = z
       .string({ required_error: "Explanation is required" })
       .min(1, "Explanation cannot be empty"),
 
-    creatorId: z
+    creator: z
       .string({ required_error: "Creator ID is required" })
       .length(24, "Creator ID must be a valid 24-character ObjectId"),
 
-    enterpriseId: z
+    enterprise: z
       .string({ required_error: "Enterprise ID is required" })
       .length(24, "Enterprise ID must be a valid 24-character ObjectId"),
 
-    classId: z
+    class: z
       .string({ required_error: "Class ID is required" })
       .length(24, "Class ID must be a valid 24-character ObjectId"),
 
-    subjectId: z
+    subject: z
       .string({ required_error: "Subject ID is required" })
       .length(24, "Subject ID must be a valid 24-character ObjectId"),
 
-    topicId: z
+    topic: z
       .string({ required_error: "Topic ID is required" })
       .length(24, "Topic ID must be a valid 24-character ObjectId"),
 
-    subtopicId: z
+    subtopic: z
       .string({ required_error: "Subtopic ID is required" })
       .length(24, "Subtopic ID must be a valid 24-character ObjectId"),
 
-    levelId: z
+    level: z
       .string({ required_error: "Level ID is required" })
       .length(24, "Level ID must be a valid 24-character ObjectId"),
-
-    image: z.string().url().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === "multiple") {
-      if (!data.option || data.option.length !== 4) {
+      if (!data.options || data.options.length !== 4) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["option"],

@@ -1,60 +1,112 @@
 import mongoose from "mongoose";
 import Enterprise from "../models/Enterprise.js";
+import { validateWithZod } from "../validations/validate.js";
+import handleError from "../helper/handleError.js";
+import handleSuccess from "../helper/handleSuccess.js";
+import isValidMongoId from "../helper/isMongoId.js";
+import { enterpriseSchema } from "../validations/enterprise.js";
 
 export const createEnterprise = async (req, res) => {
   const session = await mongoose.startSession();
+  let transactionStarted = false;
 
   try {
-    const { name } = req.body;
+    const { name, email } = req.body;
 
-    if (!name) {
-      return res.status(403).json({
-        success: false,
-        message: "Enterprise name is required",
-      });
+    const validationResult = validateWithZod(enterpriseSchema, { name, email });
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
     }
 
-    session.startTransaction();
+    // Start transaction
+    await session.startTransaction();
+    transactionStarted = true;
 
-    const [enterprise] = await Enterprise.create([{ name }], { session });
+    const [enterprise] = await Enterprise.create(
+      [
+        {
+          name,
+          email,
+        },
+      ],
+      { session }
+    );
 
     await session.commitTransaction();
-    session.endSession();
+    transactionStarted = false;
 
-    return res.status(201).json({
-      success: true,
-      message: "Enterprise created successfully",
+    return handleSuccess(
+      res,
       enterprise,
-    });
+      "Enterprise created successfully",
+      201
+    );
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
+    if (transactionStarted) {
+      await session.abortTransaction();
+    }
 
-    console.error("Create enterprise error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to create enterprise",
-      error: err.message,
-    });
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return handleError(
+        res,
+        {},
+        `Duplicate Enterprise name, use a different name`,
+        409
+      );
+    } else {
+      console.error("Create enterprise error:", err);
+      return handleError(res, err, "Failed to create enterprise", 500);
+    }
+  } finally {
+    await session.endSession();
   }
 };
 
 export const getAllEnterprises = async (req, res) => {
   try {
     const enterprises = await Enterprise.find();
-    res.json(enterprises);
+
+    return handleSuccess(
+      res,
+      { enterprises },
+      "Enterprises fetched successfully",
+      201
+    );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return handleError(res, err, "Failed to fetch enterprise", 500);
   }
 };
 
 export const getEnterpriseById = async (req, res) => {
   try {
-    const enterprise = await Enterprise.findById(req.params.id);
-    if (!enterprise) return res.status(404).json({ error: "Not found" });
-    res.json(enterprise);
+    const { enterpriseId } = req.params;
+
+    const refsToCheck = [
+      { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
+    ];
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const enterprise = await Enterprise.findById(enterpriseId);
+
+    if (!enterprise) return handleError(res, {}, "Enterprise Not found", 404);
+
+    return handleSuccess(
+      res,
+      enterprise,
+      "Enterprise fetched successfully",
+      201
+    );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return handleError(res, err, "Failed to fetch enterprise", 500);
   }
 };
 

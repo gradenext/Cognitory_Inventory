@@ -4,7 +4,7 @@ import slugify from "slugify";
 const enterpriseSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    slug: { type: String, required: true, trim: true },
+    slug: { type: String, required: true, trim: true, unique: true },
     email: {
       type: String,
       trim: true,

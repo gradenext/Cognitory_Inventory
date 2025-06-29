@@ -2,6 +2,10 @@ import { z } from "zod";
 
 export const levelSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  rank: z
+    .number({ required_error: "Rank of level is required" })
+    .min(1, "Must be greater than 1 ")
+    .max(10, "Must be less than 10 "),
   enterpriseId: z
     .string({ required_error: "Enterprise ID is required" })
     .length(24, "Enterprise ID must be a valid 24-character ObjectId"),

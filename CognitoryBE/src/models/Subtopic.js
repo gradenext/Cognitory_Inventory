@@ -4,7 +4,7 @@ import slugify from "slugify";
 const subtopicSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    slug: { type: String, required: true, trim: true },
+    slug: { type: String, required: true, trim: true, unique: true },
     enterprise: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Enterprise",
@@ -40,6 +40,8 @@ const subtopicSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+subtopicSchema.index({ slug: 1, topic: 1 }, { unique: true });
 
 subtopicSchema.pre("validate", function (next) {
   if (!this.slug && this.name) {

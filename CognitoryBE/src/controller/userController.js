@@ -40,21 +40,18 @@ export const signup = async (req, res) => {
 
     const { name, email, password } = req.body;
 
-    session.startTransaction();
+    await session.startTransaction();
+    transactionStarted = true;
 
     const existingUser = await User.findOne({ email }).session(session);
     if (existingUser) {
-      if (transactionStarted) {
-        await session.abortTransaction();
-      }
-      session.endSession();
-
+      await session.abortTransaction();
       return handleError(res, {}, "User already exists", 400);
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await User.create(
+    const [user] = await User.create(
       [
         {
           name,
@@ -68,17 +65,13 @@ export const signup = async (req, res) => {
 
     try {
       await sendMail({
-        to: user[0].email,
+        to: user.email,
         subject: "Signup Successful - Awaiting Approval",
-        html: signupTemplate(user[0].name),
+        html: signupTemplate(user.name),
       });
     } catch (mailErr) {
-      if (transactionStarted) {
-        await session.abortTransaction();
-      }
-      session.endSession();
+      await session.abortTransaction();
       console.error("Email sending failed:", mailErr);
-
       return handleError(
         res,
         { mailErr },
@@ -88,16 +81,15 @@ export const signup = async (req, res) => {
     }
 
     await session.commitTransaction();
-    session.endSession();
     transactionStarted = false;
 
     return handleSuccess(
       res,
       {
-        _id: user[0]._id,
-        name: user[0].name,
-        email: user[0].email,
-        role: user[0].role,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
       },
       "User registered successfully",
       201
@@ -106,9 +98,10 @@ export const signup = async (req, res) => {
     if (transactionStarted) {
       await session.abortTransaction();
     }
-    session.endSession();
     console.error("Create user error:", err);
     return handleError(res, err, "Signup failed", 500);
+  } finally {
+    await session.endSession();
   }
 };
 
@@ -196,11 +189,14 @@ export const approveUser = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    session.startTransaction();
+    await session.startTransaction();
     transactionStarted = true;
 
     const user = await User.findById(userId).session(session);
     if (!user) {
+      if (transactionStarted) {
+        await session.abortTransaction();
+      }
       return handleError(res, {}, "User does not exist", 404);
     }
 
@@ -223,7 +219,6 @@ export const approveUser = async (req, res) => {
     }
 
     await session.commitTransaction();
-    session.endSession();
     transactionStarted = false;
 
     return handleSuccess(
@@ -243,9 +238,11 @@ export const approveUser = async (req, res) => {
     if (transactionStarted) {
       await session.abortTransaction();
     }
-    session.endSession();
+
     console.error("Approve user error:", err);
     return handleError(res, err, "Failed to approve user", 500);
+  } finally {
+    await session.endSession();
   }
 };
 

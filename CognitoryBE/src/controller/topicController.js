@@ -3,108 +3,103 @@ import Class from "../models/Class.js";
 import Enterprise from "../models/Enterprise.js";
 import Subject from "../models/Subject.js";
 import Topic from "../models/Topic.js";
+import { validateWithZod } from "../validations/validate.js";
+import { topicSchema } from "../validations/topic.js";
+import handleError from "../helper/handleError.js";
+import isValidMongoId from "../helper/isMongoId.js";
+import { verifyModelReferences } from "../helper/referenceCheck.js";
+import handleSuccess from "../helper/handleSuccess.js";
 
 export const createTopic = async (req, res) => {
   const session = await mongoose.startSession();
+  let transactionStarted = false;
 
   try {
     const { name, enterpriseId, classId, subjectId } = req.body;
 
-    if (!name) {
-      return res.status(403).json({
-        success: false,
-        message: "Class name is required",
-      });
+    const validationResult = validateWithZod(topicSchema, {
+      name,
+      enterpriseId,
+      classId,
+      subjectId,
+    });
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
     }
 
-    if (!enterpriseId) {
-      return res.status(403).json({
-        success: false,
-        message: "Enterprise ID is required",
-      });
-    }
-    if (!classId) {
-      return res.status(403).json({
-        success: false,
-        message: "Class ID is required",
-      });
-    }
-    if (!subjectId) {
-      return res.status(403).json({
-        success: false,
-        message: "Subject ID is required",
-      });
+    const refsToCheck = [
+      { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
+      { model: Class, id: classId, key: "Class ID" },
+      { model: Subject, id: subjectId, key: "Subject ID" },
+    ];
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    if (!mongoose.Types.ObjectId.isValid(enterpriseId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Enterprise ID",
-      });
-    }
-    if (!mongoose.Types.ObjectId.isValid(classId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Class ID",
-      });
-    }
-    if (!mongoose.Types.ObjectId.isValid(subjectId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Subject ID",
-      });
-    }
+    await session.startTransaction();
+    transactionStarted = true;
 
-    session.startTransaction();
-
-    const enterprise = await Enterprise.findById(enterpriseId).session(session);
-    if (!enterprise) {
-      return res.status(404).json({
-        success: false,
-        message: "Enterprise does not exist",
-      });
-    }
-
-    const classObject = await Class.findById(classId).session(session);
-    if (!classObject) {
-      return res.status(404).json({
-        success: false,
-        message: "Class does not exist",
-      });
-    }
-    const subject = await Subject.findById(subjectId).session(session);
-    if (!subject) {
-      return res.status(404).json({
-        success: false,
-        message: "Subject does not exist",
-      });
+    const notExistIds = await verifyModelReferences(session, refsToCheck);
+    if (notExistIds.length > 0) {
+      if (transactionStarted) await session.abortTransaction();
+      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
     }
 
     const [topic] = await Topic.create(
-      [{ name, enterpriseId, classId, subjectId }],
+      [{ name, enterprise: enterpriseId, class: classId, subject: subjectId }],
       {
         session,
       }
     );
 
+    await Subject.findByIdAndUpdate(
+      subjectId,
+      {
+        $push: {
+          topics: topic._id,
+        },
+      },
+      { session }
+    );
+
+    const populatedTopic = await Topic.findById(topic._id)
+      .populate("subject", "name slug email image topics _id")
+      .session(session);
+
     await session.commitTransaction();
-    session.endSession();
+    transactionStarted = false;
 
-    res.status(201).json({
-      success: true,
-      message: "Subject created successfully",
-      topic,
-    });
+    return handleSuccess(
+      res,
+      populatedTopic,
+      `Topic added successfully to subject ${populatedTopic?.subject?.name} `,
+      201
+    );
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
+    if (transactionStarted) {
+      await session.abortTransaction();
+    }
 
-    console.error("Create class error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to create topic",
-      error: err.message,
-    });
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return handleError(
+        res,
+        {},
+        `Topic with given name already exist in the subject `,
+        409
+      );
+    } else {
+      console.error("Create topic error:", err);
+      return handleError(res, err, "Failed to create topic", 500);
+    }
+  } finally {
+    await session.endSession();
   }
 };
 
