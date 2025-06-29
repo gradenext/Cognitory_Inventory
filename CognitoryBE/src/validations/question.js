@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const addQuestionSchema = z
+export const questionSchema = z
   .object({
     text: z
       .string({ required_error: "Question text is required" })
