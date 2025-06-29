@@ -27,8 +27,8 @@ router.post("/reset-password/:token", resetPassword);
 // ✅ Change password (authenticated users only)
 router.post("/change-password", authMiddleware, changePassword);
 
-// Approve a user
-router.post("/approve/:id", authMiddleware, isAdmin, approveUser);
+// Toogle Approve
+router.post("/approve/:userId", authMiddleware, isAdmin, approveUser);
 
 // Get all users
 router.get("/", authMiddleware, isAdmin, getAllUser);

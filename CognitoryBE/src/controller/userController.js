@@ -12,6 +12,9 @@ import {
   passwordChangedTemplate,
   signupTemplate,
 } from "../utils/mailTemplate.js";
+import handleError from "../helper/handleError.js";
+import handleSuccess from "../helper/handleSuccess.js";
+import isValidMongoId from "../helper/isMongoId.js";
 
 dotenv.config();
 
@@ -22,15 +25,17 @@ if (!JWT_SECRET) throw new Error("JWT_SECRET is not set in environment");
 
 export const signup = async (req, res) => {
   const session = await mongoose.startSession();
+  let transactionStarted = false;
 
   try {
     const validationResult = validateWithZod(userSchema, req.body);
     if (!validationResult.success) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation error",
-        errors: validationResult.errors,
-      });
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
     }
 
     const { name, email, password } = req.body;
@@ -39,12 +44,12 @@ export const signup = async (req, res) => {
 
     const existingUser = await User.findOne({ email }).session(session);
     if (existingUser) {
-      await session.abortTransaction();
+      if (transactionStarted) {
+        await session.abortTransaction();
+      }
       session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: "Email already exists",
-      });
+
+      return handleError(res, {}, "User already exists", 400);
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -68,37 +73,42 @@ export const signup = async (req, res) => {
         html: signupTemplate(user[0].name),
       });
     } catch (mailErr) {
-      await session.abortTransaction();
+      if (transactionStarted) {
+        await session.abortTransaction();
+      }
       session.endSession();
       console.error("Email sending failed:", mailErr);
-      return res.status(500).json({
-        success: false,
-        message: "Signup failed during email sending",
-      });
+
+      return handleError(
+        res,
+        { mailErr },
+        "Signup failed during email sending",
+        500
+      );
     }
 
     await session.commitTransaction();
     session.endSession();
+    transactionStarted = false;
 
-    return res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      user: {
+    return handleSuccess(
+      res,
+      {
         _id: user[0]._id,
         name: user[0].name,
         email: user[0].email,
         role: user[0].role,
       },
-    });
+      "User registered successfully",
+      201
+    );
   } catch (err) {
-    await session.abortTransaction();
+    if (transactionStarted) {
+      await session.abortTransaction();
+    }
     session.endSession();
-    console.error("Signup Error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Signup failed",
-      error: err.message || err,
-    });
+    console.error("Create user error:", err);
+    return handleError(res, err, "Signup failed", 500);
   }
 };
 
@@ -108,11 +118,12 @@ export const login = async (req, res) => {
     // Validate input
     const validationResult = validateWithZod(userLogin, req.body);
     if (!validationResult.success) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation error",
-        errors: validationResult.errors,
-      });
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
     }
 
     const { email, password } = req.body;
@@ -120,28 +131,23 @@ export const login = async (req, res) => {
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
+      return handleError(res, {}, "Invalid email or password", 401);
     }
 
     // Check approval status
     if (user.approved === false) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Your account is not approved yet. Please wait for admin approval.",
-      });
+      return handleError(
+        res,
+        {},
+        "Your account is not approved yet. Please wait for admin approval.",
+        403
+      );
     }
 
     // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
+      return handleError(res, {}, "Invalid email or password", 401);
     }
 
     // Generate JWT (no expiration)
@@ -150,64 +156,65 @@ export const login = async (req, res) => {
       JWT_SECRET
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "Login successful",
-      token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        photo: user.image,
-        role: user.role,
-        approved: user.approved,
+    return handleSuccess(
+      res,
+      {
+        token,
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          photo: user.image,
+          role: user.role,
+          approved: user.approved,
+        },
       },
-    });
+      "Login successful",
+      200
+    );
   } catch (err) {
-    console.error("Login error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Login failed",
-      error: err.message || err,
-    });
+    console.error("Create user error:", err);
+    return handleError(res, err, "Login failed", 500);
   }
 };
 
 // APPROVE USER (admin only)
 export const approveUser = async (req, res) => {
+  const session = await mongoose.startSession();
+  let transactionStarted = false;
   try {
-    const { id } = req.params;
-    const { approved } = req.body;
+    const { userId } = req.params;
 
-    if (typeof approved !== "boolean") {
-      return res.status(400).json({
-        success: false,
-        message: "Approved value must be true or false",
-      });
+    if (!userId) {
+      return handleError(res, {}, "UserId is required", 400);
     }
 
-    const user = await User.findById(id);
+    const refsToCheck = [{ id: userId, key: "User ID" }];
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    session.startTransaction();
+    transactionStarted = true;
+
+    const user = await User.findById(userId).session(session);
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      return handleError(res, {}, "User does not exist", 404);
     }
 
-    // Prevent redundant updates
-    if (user.approved === approved) {
-      return res.status(400).json({
-        success: false,
-        message: `User is already ${approved ? "approved" : "unapproved"}`,
-      });
-    }
+    user.approved = !user.approved;
+    user.approvedAt = Date.now();
+    user.approvedBy = req.user.userId;
+    await user.save({ session });
 
-    // Update approval status
-    user.approved = approved;
-    await user.save();
+    const approver = await User.findById(req.user.userId, "name _id").session(
+      session
+    );
 
     // If approved now, send email
-    if (approved) {
+    if (user.approved) {
       await sendMail({
         to: user.email,
         subject: "Your Account is Approved 🎉",
@@ -215,25 +222,34 @@ export const approveUser = async (req, res) => {
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: `User ${approved ? "approved" : "unapproved"} successfully`,
-      user: {
+    await session.commitTransaction();
+    session.endSession();
+    transactionStarted = false;
+
+    return handleSuccess(
+      res,
+      {
         _id: user._id,
         name: user.name,
         email: user.email,
         approved: user.approved,
+        approvedAt: user.approvedAt,
+        approvedBy: approver,
       },
-    });
+      `User ${user.approved ? "approved" : "unapproved"} successfully`,
+      201
+    );
   } catch (err) {
-    console.error("Approval Error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "An error occurred while updating approval status",
-      error: err.message || err,
-    });
+    if (transactionStarted) {
+      await session.abortTransaction();
+    }
+    session.endSession();
+    console.error("Approve user error:", err);
+    return handleError(res, err, "Failed to approve user", 500);
   }
 };
+
+export const makeAdmin = async (req, res) => {};
 
 // FORGOT PASSWORD (send reset link)
 export const forgotPassword = async (req, res) => {
@@ -359,7 +375,9 @@ export const changePassword = async (req, res) => {
 
 export const getAllUser = async (req, res) => {
   try {
-    const users = await User.find({}, "-password -__v");
+    const users = await User.find({}, "-password -__v")
+      .populate("approvedBy", "name _id")
+      .exec();
 
     return res.json({
       success: true,

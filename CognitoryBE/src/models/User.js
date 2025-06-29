@@ -11,7 +11,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       required: true,
-
       lowercase: true,
       match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
     },
@@ -27,12 +26,20 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["user", "admin","super"],
+      enum: ["user", "admin", "super"],
       default: "user",
     },
     approved: {
       type: Boolean,
       default: false,
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    approvedAt: {
+      type: Date,
+      default: null,
     },
     questions: [
       {
