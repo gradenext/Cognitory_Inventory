@@ -11,7 +11,7 @@ export const questionSchema = z
         message: "Text type must be either 'text' or 'markdown'",
       }),
     }),
-    image: z.array(z.url()).optional(),
+    image: z.array(z.string()).optional(),
 
     type: z.enum(["input", "multiple"], {
       errorMap: () => ({
@@ -33,31 +33,27 @@ export const questionSchema = z
       .string({ required_error: "Explanation is required" })
       .min(1, "Explanation cannot be empty"),
 
-    creator: z
-      .string({ required_error: "Creator ID is required" })
-      .length(24, "Creator ID must be a valid 24-character ObjectId"),
-
-    enterprise: z
+    enterpriseId: z
       .string({ required_error: "Enterprise ID is required" })
       .length(24, "Enterprise ID must be a valid 24-character ObjectId"),
 
-    class: z
+    classId: z
       .string({ required_error: "Class ID is required" })
       .length(24, "Class ID must be a valid 24-character ObjectId"),
 
-    subject: z
+    subjectId: z
       .string({ required_error: "Subject ID is required" })
       .length(24, "Subject ID must be a valid 24-character ObjectId"),
 
-    topic: z
+    topicId: z
       .string({ required_error: "Topic ID is required" })
       .length(24, "Topic ID must be a valid 24-character ObjectId"),
 
-    subtopic: z
+    subtopicId: z
       .string({ required_error: "Subtopic ID is required" })
       .length(24, "Subtopic ID must be a valid 24-character ObjectId"),
 
-    level: z
+    levelId: z
       .string({ required_error: "Level ID is required" })
       .length(24, "Level ID must be a valid 24-character ObjectId"),
   })
@@ -66,7 +62,7 @@ export const questionSchema = z
       if (!data.options || data.options.length !== 4) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["option"],
+          path: ["options"],
           message:
             "Exactly 4 options are required for multiple choice questions",
         });

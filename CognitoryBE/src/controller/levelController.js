@@ -147,12 +147,8 @@ export const createLevel = async (req, res) => {
 
 export const getAllLevels = async (req, res) => {
   try {
-    const levels = await Level.find()
-      .populate("enterpriseId")
-      .populate("classId")
-      .populate("subjectId")
-      .populate("topicId")
-      .populate("subtopicId");
+    const levels = await Level.find();
+
     res.json(levels);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
+import User from "../models/User.js";
 import Question from "../models/Question.js";
+import Review from "../models/Review.js";
 import Enterprise from "../models/Enterprise.js";
 import Class from "../models/Class.js";
 import Subject from "../models/Subject.js";
@@ -10,7 +12,6 @@ import { questionSchema } from "../validations/question.js";
 import { validateWithZod } from "../validations/validate.js";
 import handleError from "../helper/handleError.js";
 import handleSuccess from "../helper/handleSuccess.js";
-import Review from "../models/Review.js";
 import { verifyModelReferences } from "../helper/referenceCheck.js";
 import isValidMongoId from "../helper/isMongoId.js";
 
@@ -19,7 +20,39 @@ export const createQuestion = async (req, res) => {
   let transactionStarted = false;
 
   try {
-    const validationResult = validateWithZod(questionSchema, req.body);
+    const {
+      text,
+      textType,
+      image = [],
+      type,
+      options,
+      answer,
+      hint,
+      explanation,
+      enterpriseId,
+      classId,
+      subjectId,
+      topicId,
+      subtopicId,
+      levelId,
+    } = req.body;
+
+    const validationResult = validateWithZod(questionSchema, {
+      text,
+      textType,
+      image,
+      type,
+      options,
+      answer,
+      hint,
+      explanation,
+      enterpriseId,
+      classId,
+      subjectId,
+      topicId,
+      subtopicId,
+      levelId,
+    });
     if (!validationResult.success) {
       return handleError(
         res,
@@ -29,15 +62,16 @@ export const createQuestion = async (req, res) => {
       );
     }
 
-    const data = req.body;
+    const { userId } = req.user;
 
     const refsToCheck = [
-      { model: Enterprise, id: data.enterpriseId, key: "Enterprise ID" },
-      { model: Class, id: data.classId, key: "Class ID" },
-      { model: Subject, id: data.subjectId, key: "Subject ID" },
-      { model: Topic, id: data.topicId, key: "Topic ID" },
-      { model: Subtopic, id: data.subtopicId, key: "Subtopic ID" },
-      { model: Level, id: data.levelId, key: "Level ID" },
+      { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
+      { model: Class, id: classId, key: "Class ID" },
+      { model: Subject, id: subjectId, key: "Subject ID" },
+      { model: Topic, id: topicId, key: "Topic ID" },
+      { model: Subtopic, id: subtopicId, key: "Subtopic ID" },
+      { model: Level, id: levelId, key: "Level ID" },
+      { model: User, id: userId, key: "User" },
     ];
 
     const invalidIds = isValidMongoId(refsToCheck);
@@ -54,31 +88,53 @@ export const createQuestion = async (req, res) => {
       return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
     }
 
-    const [createdQuestion] = await Question.create([{ ...data }], { session });
+    const [createdQuestion] = await Question.create(
+      [
+        {
+          text,
+          textType,
+          image,
+          type,
+          options,
+          answer,
+          hint,
+          explanation,
+          enterprise: enterpriseId,
+          class: classId,
+          subject: subjectId,
+          topic: topicId,
+          subtopic: subtopicId,
+          level: levelId,
+          creator: userId,
+        },
+      ],
+      { session }
+    );
 
     const [createdReview] = await Review.create(
       [{ questionId: createdQuestion._id }],
       { session }
     );
 
-    createdQuestion.reviewId = createdReview._id;
+    createdQuestion.review = createdReview._id;
     await createdQuestion.save({ session });
 
-    await createdQuestion.populate({ path: "reviewId", options: { session } });
+    await createdQuestion.populate({ path: "review", options: { session } });
 
     await session.commitTransaction();
     transactionStarted = false;
 
     return handleSuccess(
       res,
-      { question: createdQuestion },
+      createdQuestion,
       "Question created successfully",
       201
     );
   } catch (error) {
     if (transactionStarted) await session.abortTransaction();
+    console.log(error);
     return handleError(res, error, "Internal Server Error", 500);
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };

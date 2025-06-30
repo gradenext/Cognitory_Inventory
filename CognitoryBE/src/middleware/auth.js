@@ -41,3 +41,22 @@ export const isAdmin = async (req, res, next) => {
     return handleError(res, {}, "User Role Can't be Verified", 500);
   }
 };
+
+export const isSuper = async (req, res, next) => {
+  try {
+    const userDetails = await User.findOne({ _id: req.user.userId });
+    if (userDetails.role !== "super") {
+      return handleError(
+        res,
+        {},
+        "This is a Protected Route for Super Admin",
+        401
+      );
+    }
+    next();
+  } catch (error) {
+    console.log(error);
+
+    return handleError(res, {}, "User Role Can't be Verified", 500);
+  }
+};

@@ -6,19 +6,16 @@ export function validateWithZod(schema, data) {
     return { success: true, errors: [] };
   } catch (err) {
     if (err instanceof ZodError) {
-      const errors = err.errors.map((e) => {
-        const error = {
-          meta: {
-            path: e.path,
-            key: e.path.join("."),
-            message: e.message,
-          },
-        };
-        error[e.path.join(".")] = e.message;
+      let error = {};
 
-        return error;
-      });
-      return { success: false, errors };
+      err.errors.forEach((e) => (error[e.path.join(".")] = e.message));
+
+      const meta = err.errors.map((e) => ({
+        path: e.path,
+        key: e.path.join("."),
+        message: e.message,
+      }));
+      return { success: false, errors: { error, meta } };
     }
     return { success: false, errors: ["Unknown validation error"] };
   }
