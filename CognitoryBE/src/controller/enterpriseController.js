@@ -69,15 +69,35 @@ export const createEnterprise = async (req, res) => {
 
 export const getAllEnterprises = async (req, res) => {
   try {
-    const enterprises = await Enterprise.find();
+    const { page = 1, limit = 10, paginate = "true" } = req.query;
+    const skip = (page - 1) * limit;
+    const shouldPaginate = paginate === "true";
+
+    const query = Enterprise.find({}, "-email -slug  -__v");
+
+    if (shouldPaginate) {
+      query.skip(skip).limit(limit);
+    }
+
+    const enterprises = await query.exec();
+    const totalCount = await Enterprise.countDocuments({});
 
     return handleSuccess(
       res,
-      { enterprises },
+      {
+        ...(shouldPaginate && {
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(totalCount / limit),
+        }),
+        total: totalCount,
+        enterprises,
+      },
       "Enterprises fetched successfully",
-      201
+      200
     );
   } catch (err) {
+    console.log(err)
     return handleError(res, err, "Failed to fetch enterprise", 500);
   }
 };
@@ -86,16 +106,17 @@ export const getEnterpriseById = async (req, res) => {
   try {
     const { enterpriseId } = req.params;
 
-    const refsToCheck = [
-      { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
-    ];
+    const refsToCheck = [{ id: enterpriseId, key: "Enterprise ID" }];
 
     const invalidIds = isValidMongoId(refsToCheck);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const enterprise = await Enterprise.findById(enterpriseId);
+    const enterprise = await Enterprise.findById(
+      enterpriseId,
+      " -slug  -__v"
+    );
 
     if (!enterprise) return handleError(res, {}, "Enterprise Not found", 404);
 
@@ -103,9 +124,10 @@ export const getEnterpriseById = async (req, res) => {
       res,
       enterprise,
       "Enterprise fetched successfully",
-      201
+      200
     );
   } catch (err) {
+    console.log(err);
     return handleError(res, err, "Failed to fetch enterprise", 500);
   }
 };

@@ -120,28 +120,117 @@ export const createSubtopic = async (req, res) => {
 
 export const getAllSubtopics = async (req, res) => {
   try {
-    const subtopics = await Subtopic.find()
-      .populate("enterpriseId")
-      .populate("classId")
-      .populate("subjectId")
-      .populate("topicId");
-    res.json(subtopics);
+    const {
+      enterpriseId,
+      classId,
+      subjectId,
+      topicId,
+      page = 1,
+      limit = 10,
+      paginate = "true",
+    } = req.query;
+    const skip = (page - 1) * limit;
+    const shouldPaginate = paginate === "true";
+
+    let refsToCheck = [];
+    let params = {};
+
+    if (enterpriseId) {
+      refsToCheck.push({
+        model: Enterprise,
+        id: enterpriseId,
+        key: "Enterprise ID",
+      });
+
+      params["enterprise"] = enterpriseId;
+    }
+
+    if (classId) {
+      refsToCheck.push({
+        model: Class,
+        id: classId,
+        key: "Class ID",
+      });
+
+      params["class"] = classId;
+    }
+    if (subjectId) {
+      refsToCheck.push({
+        model: Subject,
+        id: subjectId,
+        key: "Subject ID",
+      });
+
+      params["subject"] = subjectId;
+    }
+    if (topicId) {
+      refsToCheck.push({
+        model: Topic,
+        id: topicId,
+        key: "Topic ID",
+      });
+
+      params["topic"] = topicId;
+    }
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const notExistIds = await verifyModelReferences(refsToCheck);
+    if (notExistIds.length > 0) {
+      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
+    }
+
+    const query = Subtopic.find(params, "-slug -__v");
+
+    if (shouldPaginate) {
+      query.skip(skip).limit(limit);
+    }
+
+    const subtopics = await query.exec();
+    const totalCount = await Subtopic.countDocuments(params);
+
+    return handleSuccess(
+      res,
+      {
+        ...(shouldPaginate && {
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(totalCount / limit),
+        }),
+        total: totalCount,
+        subtopics,
+      },
+      "SubTopics fetched successfully",
+      200
+    );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.log(err);
+    return handleError(res, err, "Failed to fetch subtopic", 500);
   }
 };
 
 export const getSubtopicById = async (req, res) => {
   try {
-    const subtopic = await Subtopic.findById(req.params.id)
-      .populate("enterpriseId")
-      .populate("classId")
-      .populate("subjectId")
-      .populate("topicId");
-    if (!subtopic) return res.status(404).json({ error: "Not found" });
-    res.json(subtopic);
+    const { subtopicId } = req.params;
+
+      const refsToCheck = [{ id: subtopicId, key: "Subtopic ID" }];
+
+      const invalidIds = isValidMongoId(refsToCheck);
+      if (invalidIds.length > 0) {
+        return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+      }
+
+    const subtopic = await Subtopic.findById(subtopicId, "-slug -__v");
+
+    if (!subtopic) return handleError(res, {}, "Subtopic Not found", 404);
+
+    return handleSuccess(res, subtopic, "Sub Topic fetched successfully", 200);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.log(err);
+    return handleError(res, err, "Failed to fetch subtopic", 500);
   }
 };
 

@@ -138,3 +138,139 @@ export const createQuestion = async (req, res) => {
     await session.endSession();
   }
 };
+
+export const getAllQuestions = async (req, res) => {
+  try {
+    const {
+      enterpriseId,
+      classId,
+      subjectId,
+      topicId,
+      subtopicId,
+      levelId,
+      page = 1,
+      limit = 10,
+      paginate = "true",
+    } = req.query;
+
+    const { userId, role } = req.user;
+
+    const skip = (page - 1) * limit;
+    const shouldPaginate = paginate === "true";
+
+    let refsToCheck = [];
+    let params = {};
+
+    if (enterpriseId) {
+      refsToCheck.push({
+        model: Enterprise,
+        id: enterpriseId,
+        key: "Enterprise ID",
+      });
+
+      params["enterprise"] = enterpriseId;
+    }
+
+    if (classId) {
+      refsToCheck.push({
+        model: Class,
+        id: classId,
+        key: "Class ID",
+      });
+
+      params["class"] = classId;
+    }
+    if (subjectId) {
+      refsToCheck.push({
+        model: Subject,
+        id: subjectId,
+        key: "Subject ID",
+      });
+
+      params["subject"] = subjectId;
+    }
+    if (topicId) {
+      refsToCheck.push({
+        model: Topic,
+        id: topicId,
+        key: "Topic ID",
+      });
+
+      params["topic"] = topicId;
+    }
+    if (subtopicId) {
+      refsToCheck.push({
+        model: Subtopic,
+        id: subtopicId,
+        key: "Sub Topic ID",
+      });
+
+      params["subtopic"] = subtopicId;
+    }
+    if (levelId) {
+      refsToCheck.push({
+        model: Level,
+        id: levelId,
+        key: "Level ID",
+      });
+
+      params["level"] = levelId;
+    }
+
+    if (userId && role === "user") {
+      refsToCheck.push({
+        model: User,
+        id: userId,
+        key: "User ID",
+      });
+
+      params["creator"] = userId;
+    }
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const notExistIds = await verifyModelReferences(refsToCheck);
+    if (notExistIds.length > 0) {
+      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
+    }
+
+    const query = Question.find(params, "-__v").populate([
+      { path: "enterprise", select: "_id name" },
+      { path: "class", select: "_id name" },
+      { path: "subject", select: "_id name" },
+      { path: "topic", select: "_id name" },
+      { path: "subtopic", select: "_id name" },
+      { path: "level", select: "_id name" },
+      { path: "creator", select: "_id name" },
+      { path: "review", select: "-__v" },
+    ]);
+
+    if (shouldPaginate) {
+      query.skip(skip).limit(limit);
+    }
+
+    const questions = await query.exec();
+    const totalCount = await Question.countDocuments(params);
+
+    return handleSuccess(
+      res,
+      {
+        ...(shouldPaginate && {
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(totalCount / limit),
+        }),
+        total: totalCount,
+        questions,
+      },
+      "Questions fetched successfully",
+      200
+    );
+  } catch (error) {
+    console.log(err);
+    return handleError(res, err, "Failed to fetch questions", 500);
+  }
+};

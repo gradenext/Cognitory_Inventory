@@ -147,23 +147,125 @@ export const createLevel = async (req, res) => {
 
 export const getAllLevels = async (req, res) => {
   try {
-    const levels = await Level.find();
+    const {
+      enterpriseId,
+      classId,
+      subjectId,
+      topicId,
+      subtopicId,
+      page = 1,
+      limit = 10,
+      paginate = "true",
+    } = req.query;
 
-    res.json(levels);
+    const skip = (page - 1) * limit;
+    const shouldPaginate = paginate === "true";
+
+    let refsToCheck = [];
+    let params = {};
+
+    if (enterpriseId) {
+      refsToCheck.push({
+        model: Enterprise,
+        id: enterpriseId,
+        key: "Enterprise ID",
+      });
+
+      params["enterprise"] = enterpriseId;
+    }
+
+    if (classId) {
+      refsToCheck.push({
+        model: Class,
+        id: classId,
+        key: "Class ID",
+      });
+
+      params["class"] = classId;
+    }
+    if (subjectId) {
+      refsToCheck.push({
+        model: Subject,
+        id: subjectId,
+        key: "Subject ID",
+      });
+
+      params["subject"] = subjectId;
+    }
+    if (topicId) {
+      refsToCheck.push({
+        model: Topic,
+        id: topicId,
+        key: "Topic ID",
+      });
+
+      params["topic"] = topicId;
+    }
+    if (subtopicId) {
+      refsToCheck.push({
+        model: Subtopic,
+        id: subtopicId,
+        key: "Sub Topic ID",
+      });
+
+      params["subtopic"] = subtopicId;
+    }
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const notExistIds = await verifyModelReferences(refsToCheck);
+    if (notExistIds.length > 0) {
+      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
+    }
+
+    const query = Level.find(params, "-slug -__v");
+
+    if (shouldPaginate) {
+      query.skip(skip).limit(limit);
+    }
+
+    const levels = await query.exec();
+    const totalCount = await Level.countDocuments(params);
+
+    return handleSuccess(
+      res,
+      {
+        ...(shouldPaginate && {
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(totalCount / limit),
+        }),
+        total: totalCount,
+        levels,
+      },
+      "Levels fetched successfully",
+      200
+    );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.log(err);
+    return handleError(res, err, "Failed to fetch levels", 500);
   }
 };
 
 export const getLevelById = async (req, res) => {
   try {
-    const level = await Level.findById(req.params.id).populate(
-      "enterpriseId classId subjectId topicId subtopicId"
-    );
-    if (!level) return res.status(404).json({ error: "Not found" });
-    res.json(level);
+    const { levelId } = req.params;
+
+    const refsToCheck = [{ id: levelId, key: "Level ID" }];
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+    const level = await Level.findById(levelId, "-slug -__v");
+    if (!level) return handleError(res, {}, "Level Not found", 404);
+    return handleSuccess(res, level, "Level fetched successfully", 200);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.log(err);
+    return handleError(res, err, "Failed to fetch level", 500);
   }
 };
 

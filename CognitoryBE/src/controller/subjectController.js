@@ -7,7 +7,7 @@ import { validateWithZod } from "../validations/validate.js";
 import { subjectSchema } from "../validations/subject.js";
 import handleSuccess from "../helper/handleSuccess.js";
 import handleError from "../helper/handleError.js";
-import { verifyModelReferences } from "../helper/referenceCheck.js";
+import { verifyModelReferences } from "../helper/referenceCheck.js"; 
 
 export const createSubject = async (req, res) => {
   const session = await mongoose.startSession();
@@ -98,9 +98,72 @@ export const createSubject = async (req, res) => {
 
 export const getAllSubjects = async (req, res) => {
   try {
-    const subjects = await Subject.find();
+    const {
+      enterpriseId,
+      classId,
+      page = 1,
+      limit = 10,
+      paginate = "true",
+    } = req.query;
+    const skip = (page - 1) * limit;
+    const shouldPaginate = paginate === "true";
 
-    res.json(subjects);
+    let refsToCheck = [];
+    let params = {};
+
+    if (enterpriseId) {
+      refsToCheck.push({
+        model: Enterprise,
+        id: enterpriseId,
+        key: "Enterprise ID",
+      });
+
+      params["enterprise"] = enterpriseId;
+    }
+
+    if (classId) {
+      refsToCheck.push({
+        model: Class,
+        id: classId,
+        key: "Class ID",
+      });
+
+      params["class"] = classId;
+    }
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const notExistIds = await verifyModelReferences(refsToCheck);
+    if (notExistIds.length > 0) {
+      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
+    }
+
+    const query = Subject.find(params, "-slug -__v");
+
+    if (shouldPaginate) {
+      query.skip(skip).limit(limit);
+    }
+
+    const subjects = await query.exec();
+    const totalCount = await Subject.countDocuments(params);
+
+    return handleSuccess(
+      res,
+      {
+        ...(shouldPaginate && {
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(totalCount / limit),
+        }),
+        total: totalCount,
+        subjects,
+      },
+      "Subjects fetched successfully",
+      200
+    );
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -108,13 +171,22 @@ export const getAllSubjects = async (req, res) => {
 
 export const getSubjectById = async (req, res) => {
   try {
-    const subject = await Subject.findById(req.params.id)
-      .populate("enterpriseId")
-      .populate("classId");
-    if (!subject) return res.status(404).json({ error: "Not found" });
-    res.json(subject);
+    const { subjectId } = req.params;
+
+    const refsToCheck = [{ id: subjectId, key: "Subject ID" }];
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const subject = await Subject.findById(subjectId, "-slug -__v");
+
+    if (!subject) return handleError(res, {}, "Subject Not found", 404);
+    return handleSuccess(res, subject, "Subject fetched successfully", 200);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.log(err);
+    return handleError(res, err, "Failed to fetch subject", 500);
   }
 };
 

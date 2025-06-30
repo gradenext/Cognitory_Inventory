@@ -1,8 +1,10 @@
-export const verifyModelReferences = async (session, refs = []) => {
+export const verifyModelReferences = async (refs = [], session = null) => {
   const existenceChecks = await Promise.all(
-    refs.map(({ model, id }) =>
-      model.findById(id).session(session).lean().exec()
-    )
+    refs.map(({ model, id }) => {
+      const query = model.findById(id).lean();
+      if (session) query.session(session);
+      return query.exec();
+    })
   );
 
   return refs

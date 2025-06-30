@@ -11,9 +11,9 @@ import { authMiddleware, isAdmin } from "../middleware/auth.js";
 const router = express.Router();
 
 router.get("/", authMiddleware, getAllSubjects);
-router.get("/:id", authMiddleware, getSubjectById);
+router.get("/:subjectId", authMiddleware, getSubjectById);
 router.post("/", authMiddleware, isAdmin, createSubject);
-router.put("/:id", authMiddleware, isAdmin, updateSubject);
-router.delete("/:id", authMiddleware, isAdmin, deleteSubject);
+router.put("/:subjectId", authMiddleware, isAdmin, updateSubject);
+router.delete("/:subjectId", authMiddleware, isAdmin, deleteSubject);
 
 export default router;

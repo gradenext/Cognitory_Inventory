@@ -98,21 +98,79 @@ export const createClass = async (req, res) => {
 
 export const getAllClasses = async (req, res) => {
   try {
-    const classes = await Class.find();
+    const { enterpriseId, page = 1, limit = 10, paginate = "true" } = req.query;
+    const skip = (page - 1) * limit;
+    const shouldPaginate = paginate === "true";
 
-    return handleSuccess(res, { classes }, "Classes fetched successfully", 201);
+    let refsToCheck = [];
+    let params = {};
+
+    if (enterpriseId) {
+      refsToCheck.push({
+        model: Enterprise,
+        id: enterpriseId,
+        key: "Enterprise ID",
+      });
+
+      params["enterprise"] = enterpriseId;
+    }
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const notExistIds = await verifyModelReferences(refsToCheck);
+    if (notExistIds.length > 0) {
+      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
+    }
+
+    const query = Class.find(params, "-slug -__v");
+
+    if (shouldPaginate) {
+      query.skip(skip).limit(limit);
+    }
+
+    const classes = await query.exec();
+    const totalCount = await Class.countDocuments(params);
+
+    return handleSuccess(
+      res,
+      {
+        ...(shouldPaginate && {
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(totalCount / limit),
+        }),
+        total: totalCount,
+        classes,
+      },
+      "Classes fetched successfully",
+      200
+    );
   } catch (err) {
+    console.log(err);
     return handleError(res, err, "Failed to fetch classes", 500);
   }
 };
 
 export const getClassById = async (req, res) => {
   try {
-    const cls = await Class.findById(req.params.id).populate("enterpriseId");
-    if (!cls) return res.status(404).json({ error: "Not found" });
-    res.json(cls);
+    const id = req.params.classId;
+
+    const refsToCheck = [{ id: id, key: "Class ID" }];
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const cls = await Class.findById(id, "-slug -__v");
+    if (!cls) return handleError(res, {}, "Class Not found", 404);
+    return handleSuccess(res, cls, "Class fetched successfully", 200);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.log(err);
+    return handleError(res, err, "Failed to fetch class", 500);
   }
 };
 

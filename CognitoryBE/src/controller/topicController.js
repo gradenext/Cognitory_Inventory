@@ -105,26 +105,106 @@ export const createTopic = async (req, res) => {
 
 export const getAllTopics = async (req, res) => {
   try {
-    const topics = await Topic.find()
-      .populate("enterpriseId")
-      .populate("classId")
-      .populate("subjectId");
-    res.json(topics);
+    const {
+      enterpriseId,
+      classId,
+      subjectId,
+      page = 1,
+      limit = 10,
+      paginate = "true",
+    } = req.query;
+    const skip = (page - 1) * limit;
+    const shouldPaginate = paginate === "true";
+
+    let refsToCheck = [];
+    let params = {};
+
+    if (enterpriseId) {
+      refsToCheck.push({
+        model: Enterprise,
+        id: enterpriseId,
+        key: "Enterprise ID",
+      });
+
+      params["enterprise"] = enterpriseId;
+    }
+
+    if (classId) {
+      refsToCheck.push({
+        model: Class,
+        id: classId,
+        key: "Class ID",
+      });
+
+      params["class"] = classId;
+    }
+    if (subjectId) {
+      refsToCheck.push({
+        model: Subject,
+        id: subjectId,
+        key: "Subject ID",
+      });
+
+      params["subject"] = subjectId;
+    }
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const notExistIds = await verifyModelReferences(refsToCheck);
+    if (notExistIds.length > 0) {
+      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
+    }
+
+    const query = Topic.find(params, "-slug -__v");
+
+    if (shouldPaginate) {
+      query.skip(skip).limit(limit);
+    }
+
+    const topics = await query.exec();
+    const totalCount = await Topic.countDocuments(params);
+
+    return handleSuccess(
+      res,
+      {
+        ...(shouldPaginate && {
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(totalCount / limit),
+        }),
+        total: totalCount,
+        topics,
+      },
+      "Topics fetched successfully",
+      200
+    );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.log(err);
+    return handleError(res, err, "Failed to fetch topic", 500);
   }
 };
 
 export const getTopicById = async (req, res) => {
   try {
-    const topic = await Topic.findById(req.params.id)
-      .populate("enterpriseId")
-      .populate("classId")
-      .populate("subjectId");
-    if (!topic) return res.status(404).json({ error: "Not found" });
-    res.json(topic);
+    const { topicId } = req.params;
+
+    const refsToCheck = [{ id: topicId, key: "Topic ID" }];
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const topic = await Topic.findById(topicId, "-slug -__v");
+
+    if (!topic) return handleError(res, {}, "Topic Not found", 404);
+    return handleSuccess(res, topic, "Topic fetched successfully", 200);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.log(err);
+    return handleError(res, err, "Failed to fetch topic", 500);
   }
 };
 
