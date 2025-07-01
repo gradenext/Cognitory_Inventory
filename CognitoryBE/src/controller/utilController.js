@@ -11,7 +11,7 @@ export const uploadFiles = async (req, res) => {
     }
 
     // Get UUID from request, or generate if not sent
-    const baseUUID = req.body.uuid || uuidv4();
+    const baseUUID = req.body?.uuid || uuidv4();
 
     // Normalize files to array
     const files = Array.isArray(req.files.file)

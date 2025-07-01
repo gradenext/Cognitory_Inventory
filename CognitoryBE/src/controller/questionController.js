@@ -84,7 +84,7 @@ export const createQuestion = async (req, res) => {
     await session.startTransaction();
     transactionStarted = true;
 
-    const notExistIds = await verifyModelReferences(session, refsToCheck);
+    const notExistIds = await verifyModelReferences(refsToCheck, session);
     if (notExistIds.length > 0) {
       await session.abortTransaction();
       return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);

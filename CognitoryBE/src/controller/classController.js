@@ -40,7 +40,7 @@ export const createClass = async (req, res) => {
     await session.startTransaction();
     transactionStarted = true;
 
-    const notExistIds = await verifyModelReferences(session, refsToCheck);
+    const notExistIds = await verifyModelReferences(refsToCheck, session);
     if (notExistIds.length > 0) {
       if (transactionStarted) {
         await session.abortTransaction();

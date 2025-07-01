@@ -7,7 +7,7 @@ import { validateWithZod } from "../validations/validate.js";
 import { subjectSchema } from "../validations/subject.js";
 import handleSuccess from "../helper/handleSuccess.js";
 import handleError from "../helper/handleError.js";
-import { verifyModelReferences } from "../helper/referenceCheck.js"; 
+import { verifyModelReferences } from "../helper/referenceCheck.js";
 
 export const createSubject = async (req, res) => {
   const session = await mongoose.startSession();
@@ -42,7 +42,7 @@ export const createSubject = async (req, res) => {
     session.startTransaction();
     transactionStarted = true;
 
-    const notExistIds = await verifyModelReferences(session, refsToCheck);
+    const notExistIds = await verifyModelReferences(refsToCheck, session);
     if (notExistIds.length > 0) {
       if (transactionStarted) {
         await session.abortTransaction();

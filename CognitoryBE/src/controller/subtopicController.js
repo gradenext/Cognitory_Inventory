@@ -48,7 +48,7 @@ export const createSubtopic = async (req, res) => {
     session.startTransaction();
     transactionStarted = true;
 
-    const notExistIds = await verifyModelReferences(session, refsToCheck);
+    const notExistIds = await verifyModelReferences(refsToCheck, session);
     if (notExistIds.length > 0) {
       if (transactionStarted) {
         await session.abortTransaction();
@@ -216,12 +216,12 @@ export const getSubtopicById = async (req, res) => {
   try {
     const { subtopicId } = req.params;
 
-      const refsToCheck = [{ id: subtopicId, key: "Subtopic ID" }];
+    const refsToCheck = [{ id: subtopicId, key: "Subtopic ID" }];
 
-      const invalidIds = isValidMongoId(refsToCheck);
-      if (invalidIds.length > 0) {
-        return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
-      }
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
 
     const subtopic = await Subtopic.findById(subtopicId, "-slug -__v");
 
