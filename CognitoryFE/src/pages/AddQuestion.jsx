@@ -4,6 +4,7 @@ import { validateWithZod } from "../validations/validate";
 import Input from "../components/shared/Input";
 import FileUpload from "../components/shared/FileUpload";
 import Textarea from "../components/shared/Textarea";
+import Select from "../components/shared/Select";
 
 const AddQuestion = () => {
   const [form, setForm] = useState({
@@ -57,49 +58,49 @@ const AddQuestion = () => {
         className="bg-white p-8 rounded-xl shadow-lg space-y-8"
       >
         <div className="grid grid-cols-2 gap-2 ">
-          <Input
+          <Select
             label="Enterprise ID"
             name="enterpriseId"
             value={form.enterpriseId}
             onChange={handleChange}
           />
-          <Input
+          <Select
             label="Class ID"
             name="classId"
             value={form.classId}
             onChange={handleChange}
           />
-          <Input
+          <Select
             label="Subject ID"
             name="subjectId"
             value={form.subjectId}
             onChange={handleChange}
           />
-          <Input
+          <Select
             label="Topic ID"
             name="topicId"
             value={form.topicId}
             onChange={handleChange}
           />
-          <Input
+          <Select
             label="Subtopic ID"
             name="subtopicId"
             value={form.subtopicId}
             onChange={handleChange}
           />
-          <Input
+          <Select
             label="Level ID"
             name="levelId"
             value={form.levelId}
             onChange={handleChange}
           />
-          <Input
+          <Select
             label="Text Type"
             name="textType"
             value={form.textType}
             onChange={handleChange}
           />
-          <Input
+          <Select
             label="Type"
             name="type"
             value={form.type}
