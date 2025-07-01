@@ -1,0 +1,879 @@
+{
+	"info": {
+		"_postman_id": "50a3ab88-4177-49cb-8038-c13d486beff5",
+		"name": "Cognitory",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "36241491"
+	},
+	"item": [
+		{
+			"name": "User",
+			"item": [
+				{
+					"name": "Signup",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Kuldeep Kushwah\",\n    \"email\": \"kuldeepkushwah303@gmail.com\",\n    \"password\": \"kuldeep@303\",\n    \"confirmPassword\": \"kuldeep@303\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{dev_url}}/user/signup",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"user",
+								"signup"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\":\"devgupta@gmail.com\",\n    \"password\":\"1234567890\"\n\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{dev_url}}/user/login",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"user",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get all users",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{dev_url}}/user",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"user"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Approve",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{dev_url}}/user/approve/:userId",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"user",
+								"approve",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "68610cf1e8eaffad0d28db75"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Enterprise",
+			"item": [
+				{
+					"name": "Create enterprise",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"Anonymous\",\n    \"email\":\"Anonymous@mail.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{dev_url}}/enterprise",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"enterprise"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get all enterprise",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{dev_url}}/enterprise",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"enterprise"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get enterprise by id",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{dev_url}}/enterprise/:enterpriseId",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"enterprise",
+								":enterpriseId"
+							],
+							"variable": [
+								{
+									"key": "enterpriseId",
+									"value": "6861186b4509f60d1408aa4d"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Class",
+			"item": [
+				{
+					"name": "Create class",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"9\",\n    \"enterpriseId\":\"686114dec54f9369ebd13664\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{dev_url}}/class",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"class"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All classes",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{dev_url}}/class?enterpriseId=686114dec54f9369ebd13664&paginate=true",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"class"
+							],
+							"query": [
+								{
+									"key": "enterpriseId",
+									"value": "686114dec54f9369ebd13664"
+								},
+								{
+									"key": "paginate",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get class by Id",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{dev_url}}/class/:classId",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"class",
+								":classId"
+							],
+							"variable": [
+								{
+									"key": "classId",
+									"value": "6861167df00e247a787fce50"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Subject",
+			"item": [
+				{
+					"name": "Create subject",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"Science4\",\n    \"enterpriseId\":\"686114dec54f9369ebd13664\",\n    \"classId\":\"6861167df00e247a787fce50\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{dev_url}}/subject",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"subject"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get all subjects",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{dev_url}}/subject?enterpriseId=686114dec54f9369ebd13664&classId=6861167df00e247a787fce50&paginate=false",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"subject"
+							],
+							"query": [
+								{
+									"key": "enterpriseId",
+									"value": "686114dec54f9369ebd13664"
+								},
+								{
+									"key": "classId",
+									"value": "6861167df00e247a787fce50"
+								},
+								{
+									"key": "paginate",
+									"value": "false"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get subject by id",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{dev_url}}/subject/:subjectId",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"subject",
+								":subjectId"
+							],
+							"variable": [
+								{
+									"key": "subjectId",
+									"value": "68612202b67d26611db88bdb"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Question",
+			"item": [
+				{
+					"name": "Create Question",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"text\": \"Question no 1\",\n     \"image\": [\"https://www.google.com\"],\n    \"textType\": \"text\",\n    \"type\": \"multiple\",\n    \"options\": [\n        \"1\",\n        \"2\",\n        \"3\",\n        \"4\"\n    ],\n    \"answer\": \"answer\",\n    \"hint\": \"hint\",\n    \"explanation\": \"explanation\",\n    \"enterpriseId\": \"686114dec54f9369ebd13664\",\n    \"classId\": \"6861167df00e247a787fce50\",\n    \"subjectId\": \"68612202b67d26611db88bdb\",\n    \"topicId\": \"68612bbb7fd7c7da2ac20f8f\",\n    \"subtopicId\": \"68613045ab308b6a61334fd8\",\n    \"levelId\": \"6861360be7b43323b9d70f66\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{dev_url}}/question",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"question"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get all questions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{dev_url}}/question?enterpriseId&classId&subjectId&topicId&subtopicId&levelId&paginate=false",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"question"
+							],
+							"query": [
+								{
+									"key": "enterpriseId",
+									"value": null
+								},
+								{
+									"key": "classId",
+									"value": null
+								},
+								{
+									"key": "subjectId",
+									"value": null
+								},
+								{
+									"key": "topicId",
+									"value": null
+								},
+								{
+									"key": "subtopicId",
+									"value": null
+								},
+								{
+									"key": "levelId",
+									"value": null
+								},
+								{
+									"key": "paginate",
+									"value": "false"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Rating",
+			"item": []
+		},
+		{
+			"name": "Topic",
+			"item": [
+				{
+					"name": "Create Topic",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"Addition and Subtraction Story Problems\",\n    \"enterpriseId\":\"686114dec54f9369ebd13664\",\n    \"classId\":\"6861167df00e247a787fce50\",\n    \"subjectId\":\"68612202b67d26611db88bdb\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{dev_url}}/topic",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"topic"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get topic by Id",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{dev_url}}/topic/:topicId",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"topic",
+								":topicId"
+							],
+							"variable": [
+								{
+									"key": "topicId",
+									"value": "68612bbb7fd7c7da2ac20f8f"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get all topics",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{dev_url}}/topic?enterpriseId=686114dec54f9369ebd13664&classId=6861167df00e247a787fce50&subjectId=68612202b67d26611db88bdb&paginate=false",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"topic"
+							],
+							"query": [
+								{
+									"key": "enterpriseId",
+									"value": "686114dec54f9369ebd13664"
+								},
+								{
+									"key": "classId",
+									"value": "6861167df00e247a787fce50"
+								},
+								{
+									"key": "subjectId",
+									"value": "68612202b67d26611db88bdb"
+								},
+								{
+									"key": "paginate",
+									"value": "false"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "SubTopic",
+			"item": [
+				{
+					"name": "Create Sub topic",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Subtraction\",\n    \"enterpriseId\": \"686114dec54f9369ebd13664\",\n    \"classId\": \"6861167df00e247a787fce50\",\n    \"subjectId\": \"68612202b67d26611db88bdb\",\n    \"topicId\": \"68612bbb7fd7c7da2ac20f8f\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{dev_url}}/subtopic",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"subtopic"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get all subtopic",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{dev_url}}/subtopic?paginate=false",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"subtopic"
+							],
+							"query": [
+								{
+									"key": "enterpriseId",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "classId",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "subjectId",
+									"value": "68612202b67d26611db88bdb",
+									"disabled": true
+								},
+								{
+									"key": "topicId",
+									"value": "68612bbb7fd7c7da2ac20f8f",
+									"disabled": true
+								},
+								{
+									"key": "subtopicId",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "paginate",
+									"value": "false"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get subtopic by id",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{dev_url}}/subtopic/:subtopicId",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"subtopic",
+								":subtopicId"
+							],
+							"variable": [
+								{
+									"key": "subtopicId",
+									"value": "68613045ab308b6a61334fd8"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Level",
+			"item": [
+				{
+					"name": "Create Level",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Pi\",\n    \"rank\": 5,\n    \"enterpriseId\": \"686114dec54f9369ebd13664\",\n    \"classId\": \"6861167df00e247a787fce50\",\n    \"subjectId\": \"68612202b67d26611db88bdb\",\n    \"topicId\": \"68612bbb7fd7c7da2ac20f8f\",\n    \"subtopicId\": \"68613045ab308b6a61334fd8\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{dev_url}}/level",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"level"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get all levels",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{dev_url}}/level",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"level"
+							],
+							"query": [
+								{
+									"key": "enterpriseId",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "classId",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "subjectId",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "topicId",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "subtopicId",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "paginate",
+									"value": "false",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get level by id",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{dev_url}}/level/:levelId",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"level",
+								":levelId"
+							],
+							"variable": [
+								{
+									"key": "levelId",
+									"value": "6861360be7b43323b9d70f66"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Util",
+			"item": [
+				{
+					"name": "File Upload",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/home/devgupta/Downloads/Holy men2.webp"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/home/devgupta/Pictures/Screenshots/Screenshot From 2025-05-05 17-19-28.png"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{dev_url}}/util/upload",
+							"host": [
+								"{{dev_url}}"
+							],
+							"path": [
+								"util",
+								"upload"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODYxMGMxZmZmMTgwYWQxMzRjNDM1YTUiLCJlbWFpbCI6ImRldmd1cHRhQGdtYWlsLmNvbSIsInJvbGUiOiJzdXBlciIsImlhdCI6MTc1MTE5MDk2OX0.7P7l1wBfzEvUHHINUjbzNLLgFCBvdz-R_Sjm0_FpDjA",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "creatorId",
+			"value": "68501c1c9d30abdae6cc367d",
+			"type": "string"
+		}
+	]
+}

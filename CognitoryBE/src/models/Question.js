@@ -12,12 +12,18 @@ const questionSchema = new mongoose.Schema(
       enum: ["text", "markdown", "latex"],
       required: true,
     },
-    image: [
-      {
+    image: {
+      uuid: {
         type: String,
-        trim: true,
+        unique: true,
       },
-    ],
+      files: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+    },
     type: {
       type: String,
       enum: ["input", "multiple"],

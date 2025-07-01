@@ -23,7 +23,8 @@ export const createQuestion = async (req, res) => {
     const {
       text,
       textType,
-      image = [],
+      images = [],
+      imageUUID,
       type,
       options,
       answer,
@@ -40,7 +41,8 @@ export const createQuestion = async (req, res) => {
     const validationResult = validateWithZod(questionSchema, {
       text,
       textType,
-      image,
+      images,
+      imageUUID,
       type,
       options,
       answer,
@@ -93,7 +95,10 @@ export const createQuestion = async (req, res) => {
         {
           text,
           textType,
-          image,
+          image: {
+            uuid: imageUUID,
+            files: images,
+          },
           type,
           options,
           answer,

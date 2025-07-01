@@ -11,7 +11,9 @@ export const questionSchema = z
         message: "Text type must be either 'text' or 'markdown'",
       }),
     }),
-    image: z.array(z.string()).optional(),
+
+    images: z.array(z.string()).optional(),
+    imageUUID: z.string().optional(),
 
     type: z.enum(["input", "multiple"], {
       errorMap: () => ({
@@ -67,5 +69,13 @@ export const questionSchema = z
             "Exactly 4 options are required for multiple choice questions",
         });
       }
+    }
+
+    if (data.images && data.images.length > 0 && !data.imageUUID) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["imageUUID"],
+        message: "imageUUID is required when images are provided",
+      });
     }
   });
