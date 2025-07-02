@@ -2,11 +2,12 @@ import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
 const api = axios.create({
-  baseURL: "https://cognitory.onrender.com/api/v1",
+  baseURL: "http://localhost:5000/api/v1",
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODYxMGMxZmZmMTgwYWQxMzRjNDM1YTUiLCJlbWFpbCI6ImRldmd1cHRhQGdtYWlsLmNvbSIsInJvbGUiOiJzdXBlciIsImlhdCI6MTc1MTE5MDk2OX0.7P7l1wBfzEvUHHINUjbzNLLgFCBvdz-R_Sjm0_FpDjA";
 
   if (token) config.headers.Authorization = `Bearer ${token}`;
 
@@ -15,8 +16,14 @@ api.interceptors.request.use((config) => {
 
 export const getClasses = async (enterpriseId) => {
   try {
-    const response = api.get(`/class?enterpriseId=${enterpriseId}`);
-    return response.data;
+    const response = await api.get(
+      `/class?enterpriseId=${enterpriseId}&paginate=false`
+    );
+
+    return response?.data?.data?.classes?.map((item) => ({
+      value: item?._id,
+      label: item?.name,
+    }));
   } catch (error) {
     console.log(error);
     throw error;
@@ -25,8 +32,13 @@ export const getClasses = async (enterpriseId) => {
 
 export const getSubjects = async (classId) => {
   try {
-    const response = api.get(`/subject?classId=${classId}`);
-    return response.data;
+    const response = await api.get(
+      `/subject?classId=${classId}&paginate=false`
+    );
+    return response?.data?.data?.subjects?.map((item) => ({
+      value: item?._id,
+      label: item?.name,
+    }));
   } catch (error) {
     console.log(error);
     throw error;
@@ -35,8 +47,13 @@ export const getSubjects = async (classId) => {
 
 export const getTopics = async (subjectId) => {
   try {
-    const response = api.get(`/topic?subjectId=${subjectId}`);
-    return response.data;
+    const response = await api.get(
+      `/topic?subjectId=${subjectId}&paginate=false`
+    );
+    return response?.data?.data?.topics?.map((item) => ({
+      value: item?._id,
+      label: item?.name,
+    }));
   } catch (error) {
     console.log(error);
     throw error;
@@ -45,8 +62,13 @@ export const getTopics = async (subjectId) => {
 
 export const getSubtopics = async (topicId) => {
   try {
-    const response = api.get(`/subtopic?topicId=${topicId}`);
-    return response.data;
+    const response = await api.get(
+      `/subtopic?topicId=${topicId}&paginate=false`
+    );
+    return response?.data?.data?.subtopics?.map((item) => ({
+      value: item?._id,
+      label: item?.name,
+    }));
   } catch (error) {
     console.log(error);
     throw error;
@@ -55,8 +77,13 @@ export const getSubtopics = async (topicId) => {
 
 export const getLevels = async (subtopicId) => {
   try {
-    const response = api.get(`/level?subtopicId=${subtopicId}`);
-    return response.data;
+    const response = await api.get(
+      `/level?subtopicId=${subtopicId}&paginate=false`
+    );
+    return response?.data?.data?.levels?.map((item) => ({
+      value: item?._id,
+      label: `${item?.rank} - ${item?.name} `,
+    }));
   } catch (error) {
     console.log(error);
     throw error;
@@ -75,7 +102,7 @@ export const upload = async (filesArray) => {
     formData.append("uuid", uuid);
 
     const response = await api.post("/util/upload", formData);
-    return response.data;
+    return response?.data?.data;
   } catch (error) {
     console.error("Upload error:", error);
     throw error;
@@ -85,7 +112,7 @@ export const upload = async (filesArray) => {
 export const createQuestion = async (data) => {
   try {
     const response = await api.post("/question", data);
-    return response.data;
+    return response?.data;
   } catch (error) {
     console.error("Upload error:", error);
     throw error;

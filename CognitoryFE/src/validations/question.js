@@ -2,72 +2,45 @@ import { z } from "zod";
 
 export const addQuestionSchema = z
   .object({
-    text: z
-      .string({ required_error: "Question text is required" })
-      .min(1, "Question text cannot be empty"),
+    text: z.string().min(1, "Question text is required"),
 
-    textType: z.enum(["text", "markdown"], {
+    textType: z.enum(["text", "markdown", "latex"], {
       errorMap: () => ({
-        message: "Text type must be either 'text' or 'markdown'",
+        message: "Text type is required",
       }),
     }),
 
     type: z.enum(["input", "multiple"], {
       errorMap: () => ({
-        message: "Type must be either 'input' or 'multiple'",
+        message: "Type is required",
       }),
     }),
 
-    option: z.array(z.string()).optional(),
+    options: z.array(z.string()).optional(),
 
-    answer: z
-      .string({ required_error: "Answer is required" })
-      .min(1, "Answer cannot be empty"),
+    answer: z.string().min(1, "Answer is required"),
+    hint: z.string().min(1, "Hint is required"),
+    explanation: z.string().min(1, "Explanation is required"),
 
-    hint: z
-      .string({ required_error: "Hint is required" })
-      .min(1, "Hint cannot be empty"),
+    enterpriseId: z.string().length(24, "Enterprise is required"),
+    classId: z.string().length(24, "Class is required"),
+    subjectId: z.string().length(24, "Subject is required"),
+    topicId: z.string().length(24, "Topic is required"),
+    subtopicId: z.string().length(24, "Subtopic ID is required"),
+    levelId: z.string().length(24, "Level ID is required"),
 
-    explanation: z
-      .string({ required_error: "Explanation is required" })
-      .min(1, "Explanation cannot be empty"),
-
-    creatorId: z
-      .string({ required_error: "Creator ID is required" })
-      .length(24, "Creator ID must be a valid 24-character ObjectId"),
-
-    enterpriseId: z
-      .string({ required_error: "Enterprise ID is required" })
-      .length(24, "Enterprise ID must be a valid 24-character ObjectId"),
-
-    classId: z
-      .string({ required_error: "Class ID is required" })
-      .length(24, "Class ID must be a valid 24-character ObjectId"),
-
-    subjectId: z
-      .string({ required_error: "Subject ID is required" })
-      .length(24, "Subject ID must be a valid 24-character ObjectId"),
-
-    topicId: z
-      .string({ required_error: "Topic ID is required" })
-      .length(24, "Topic ID must be a valid 24-character ObjectId"),
-
-    subtopicId: z
-      .string({ required_error: "Subtopic ID is required" })
-      .length(24, "Subtopic ID must be a valid 24-character ObjectId"),
-
-    levelId: z
-      .string({ required_error: "Level ID is required" })
-      .length(24, "Level ID must be a valid 24-character ObjectId"),
-
-    image: z.string().url().optional(),
+    images: z
+      .array(z.instanceof(File), {
+        invalid_type_error: "Each image must be a File object",
+      })
+      .optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === "multiple") {
-      if (!data.option || data.option.length !== 4) {
+      if (!data.options || data.options.length !== 4) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["option"],
+          path: ["options"],
           message:
             "Exactly 4 options are required for multiple choice questions",
         });

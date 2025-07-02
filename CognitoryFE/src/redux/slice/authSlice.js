@@ -12,5 +12,5 @@ export const authSlice = createSlice({
   },
 });
 
-export const { increment, decrement, reset } = authSlice.actions;
+export const { setToken } = authSlice.actions;
 export default authSlice.reducer;
