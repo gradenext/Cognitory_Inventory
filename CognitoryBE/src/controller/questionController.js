@@ -17,7 +17,6 @@ import isValidMongoId from "../helper/isMongoId.js";
 
 export const createQuestion = async (req, res) => {
   const session = await mongoose.startSession();
-  let transactionStarted = false;
 
   try {
     const {
@@ -66,78 +65,77 @@ export const createQuestion = async (req, res) => {
 
     const { userId } = req.user;
 
-    const refsToCheck = [
-      { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
-      { model: Class, id: classId, key: "Class ID" },
-      { model: Subject, id: subjectId, key: "Subject ID" },
-      { model: Topic, id: topicId, key: "Topic ID" },
-      { model: Subtopic, id: subtopicId, key: "Subtopic ID" },
-      { model: Level, id: levelId, key: "Level ID" },
-      { model: User, id: userId, key: "User" },
-    ];
+    const result = await session.withTransaction(async () => {
+      const refsToCheck = [
+        { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
+        { model: Class, id: classId, key: "Class ID" },
+        { model: Subject, id: subjectId, key: "Subject ID" },
+        { model: Topic, id: topicId, key: "Topic ID" },
+        { model: Subtopic, id: subtopicId, key: "Subtopic ID" },
+        { model: Level, id: levelId, key: "Level ID" },
+        { model: User, id: userId, key: "User" },
+      ];
 
-    const invalidIds = isValidMongoId(refsToCheck);
-    if (invalidIds.length > 0) {
-      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
-    }
+      const invalidIds = isValidMongoId(refsToCheck);
+      if (invalidIds.length > 0) {
+        throw new Error(`Invalid ${invalidIds.join(", ")}`);
+      }
 
-    await session.startTransaction();
-    transactionStarted = true;
+      const notExistIds = await verifyModelReferences(refsToCheck, session);
+      if (notExistIds.length > 0) {
+        throw new Error(`${notExistIds.join(", ")} not found`);
+      }
 
-    const notExistIds = await verifyModelReferences(refsToCheck, session);
-    if (notExistIds.length > 0) {
-      await session.abortTransaction();
-      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
-    }
-
-    const [createdQuestion] = await Question.create(
-      [
-        {
-          text,
-          textType,
-          image: {
-            uuid: imageUUID,
-            files: images,
+      const [createdQuestion] = await Question.create(
+        [
+          {
+            text,
+            textType,
+            image: {
+              uuid: imageUUID,
+              files: images,
+            },
+            type,
+            options,
+            answer,
+            hint,
+            explanation,
+            enterprise: enterpriseId,
+            class: classId,
+            subject: subjectId,
+            topic: topicId,
+            subtopic: subtopicId,
+            level: levelId,
+            creator: userId,
           },
-          type,
-          options,
-          answer,
-          hint,
-          explanation,
-          enterprise: enterpriseId,
-          class: classId,
-          subject: subjectId,
-          topic: topicId,
-          subtopic: subtopicId,
-          level: levelId,
-          creator: userId,
+        ],
+        { session }
+      );
+
+      const [createdReview] = await Review.create(
+        [{ questionId: createdQuestion._id }],
+        { session }
+      );
+
+      await User.findByIdAndUpdate(
+        userId,
+        {
+          $push: { questions: createdQuestion._id },
         },
-      ],
-      { session }
-    );
+        { session }
+      );
 
-    const [createdReview] = await Review.create(
-      [{ questionId: createdQuestion._id }],
-      { session }
-    );
+      createdQuestion.review = createdReview._id;
+      await createdQuestion.save({ session });
 
-    createdQuestion.review = createdReview._id;
-    await createdQuestion.save({ session });
+      await createdQuestion.populate({ path: "review", options: { session } });
 
-    await createdQuestion.populate({ path: "review", options: { session } });
+      return createdQuestion;
+    });
 
-    await session.commitTransaction();
-    transactionStarted = false;
-
-    return handleSuccess(
-      res,
-      createdQuestion,
-      "Question created successfully",
-      201
-    );
+    return handleSuccess(res, result, "Question created successfully", 201);
   } catch (error) {
-    if (transactionStarted) await session.abortTransaction();
-    console.log(error);
+    console.error("Transaction failed:", error);
     return handleError(res, error, "Internal Server Error", 500);
   } finally {
     await session.endSession();

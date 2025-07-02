@@ -36,7 +36,7 @@ export const uploadFiles = async (req, res) => {
     return handleSuccess(
       res,
       {
-        urls: files.length === 1 ? results[0] : results,
+        urls: results,
         uuid: baseUUID,
       },
       "File upload successful",
