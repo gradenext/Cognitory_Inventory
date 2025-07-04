@@ -1,4 +1,5 @@
 import axios from "axios";
+import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
 
 const api = axios.create({
@@ -26,7 +27,7 @@ export const getClasses = async (enterpriseId) => {
     }));
   } catch (error) {
     console.log(error);
-    throw error;
+    toast.error(error.response?.data?.message);
   }
 };
 
@@ -41,7 +42,7 @@ export const getSubjects = async (classId) => {
     }));
   } catch (error) {
     console.log(error);
-    throw error;
+    toast.error(error.response?.data?.message);
   }
 };
 
@@ -56,7 +57,7 @@ export const getTopics = async (subjectId) => {
     }));
   } catch (error) {
     console.log(error);
-    throw error;
+    toast.error(error.response?.data?.message);
   }
 };
 
@@ -71,7 +72,7 @@ export const getSubtopics = async (topicId) => {
     }));
   } catch (error) {
     console.log(error);
-    throw error;
+    toast.error(error.response?.data?.message);
   }
 };
 
@@ -86,7 +87,7 @@ export const getLevels = async (subtopicId) => {
     }));
   } catch (error) {
     console.log(error);
-    throw error;
+    toast.error(error.response?.data?.message);
   }
 };
 
@@ -105,7 +106,7 @@ export const upload = async (filesArray) => {
     return response?.data?.data;
   } catch (error) {
     console.error("Upload error:", error);
-    throw error;
+    toast.error(error.response?.data?.message);
   }
 };
 
@@ -115,6 +116,6 @@ export const createQuestion = async (data) => {
     return response?.data;
   } catch (error) {
     console.error("Upload error:", error);
-    throw error;
+    toast.error(error.response?.data?.message);
   }
 };
