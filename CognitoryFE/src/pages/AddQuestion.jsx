@@ -91,6 +91,18 @@ const AddQuestion = () => {
       });
 
       toast.success(response.message);
+
+      setForm((prev) => ({
+        ...prev,
+        text: "",
+        textType: "",
+        images: [],
+        type: "",
+        options: ["", "", "", ""],
+        answer: "",
+        hint: "",
+        explanation: "",
+      }));
     } catch (error) {
       console.log(error);
       toast.error(error.response?.data?.message);

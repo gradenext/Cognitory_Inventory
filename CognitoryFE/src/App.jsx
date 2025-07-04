@@ -10,7 +10,7 @@ function App() {
           path="/question/add/:enterpriseId"
           element={<AddQuestion />}
         />
-        <Route path="*" element={<Navigate to={"/question/add/686114dec54f9369ebd13664"} />} />
+        <Route path="*" element={<Navigate to={"/question/add/6867b105b3742460a7db2326"} />} />
       </Routes>
     </div>
   );
