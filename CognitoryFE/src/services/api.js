@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api/v1",
+  baseURL: "https://cognitory.onrender.com/api/v1",
 });
 
 api.interceptors.request.use((config) => {
@@ -28,6 +28,7 @@ export const getClasses = async (enterpriseId) => {
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
+    return [];
   }
 };
 
@@ -43,6 +44,7 @@ export const getSubjects = async (classId) => {
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
+    return [];
   }
 };
 
@@ -58,6 +60,7 @@ export const getTopics = async (subjectId) => {
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
+    return [];
   }
 };
 
@@ -73,6 +76,7 @@ export const getSubtopics = async (topicId) => {
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
+    return [];
   }
 };
 
@@ -88,6 +92,7 @@ export const getLevels = async (subtopicId) => {
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
+    return [];
   }
 };
 
