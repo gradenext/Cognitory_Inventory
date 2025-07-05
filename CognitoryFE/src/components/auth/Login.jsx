@@ -121,8 +121,8 @@ const Login = () => {
           Forgot Password
         </Link>
 
-        <div className="text-sm text-white/60 text-center">
-          Don't have an account?{" "}
+        <div className="text-sm text-white/60 text-center flex justify-center items-center">
+          <div>Don't have an account?</div>
           <Link to={"/signup"} className="underline hover:text-white">
             Sign up
           </Link>

@@ -30,7 +30,7 @@ const TypewriterText = () => {
     return () => clearInterval(interval);
   }, [dir]);
 
-  return <span className="blur-sm">{text}</span>;
+  return <span className="blur-xs sm:blur-sm">{text}</span>;
 };
 
 export default TypewriterText

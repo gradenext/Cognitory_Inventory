@@ -9,6 +9,7 @@ import ForgetPassword from "./components/auth/ForgetPassword";
 import User from "./pages/User";
 import Admin from "./pages/Admin";
 import ResetPassword from "./components/auth/ResetPassword";
+import Homepage from "./components/auth/Homepage";
 
 function App() {
   const token = useSelector((state) => state?.user?.token);
@@ -19,6 +20,7 @@ function App() {
       <Routes>
         {!token ? (
           <Route path="/" element={<Auth />}>
+            <Route index element={<Homepage />} />
             <Route path="login" element={<Login />} />
             <Route path="signup" element={<Signup />} />
             <Route path="forget-password" element={<ForgetPassword />} />

@@ -1,6 +1,6 @@
 import { AtSign, DoorOpen, LogIn, Pyramid } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { logOut } from "../../redux/slice/userSlice";
 
 export const Navbar = () => {
@@ -11,10 +11,12 @@ export const Navbar = () => {
   return (
     <nav className="h-16 px-6 fixed top-0 z-50 w-full flex items-center justify-between bg-white/10 backdrop-blur-md border-b border-white/10 text-white shadow-sm">
       {/* Left: Logo and Brand */}
-      <div className="flex items-center gap-2">
-        <Pyramid className="" />
-        <span className="text-xl font-semibold tracking-wide">Cognitory</span>
-      </div>
+      <Link to={"/"}>
+        <div className="flex items-center gap-2">
+          <Pyramid className="" />
+          <span className="text-xl font-semibold tracking-wide">Cognitory</span>
+        </div>
+      </Link>
 
       {token ? (
         <button
@@ -28,8 +30,8 @@ export const Navbar = () => {
           Logout
         </button>
       ) : (
-        <div>
-          {location.pathname === "/signup" ? (
+        <div className=" flex justify-center items-center gap-x-4">
+          {location.pathname !== "/login" && (
             <button
               onClick={() => navigate("/login")}
               className="px-4 py-2 flex justify-center items-center gap-x-2 rounded-lg text-sm bg-white text-black hover:bg-white/90 transition cursor-pointer hover:underline"
@@ -37,7 +39,8 @@ export const Navbar = () => {
               <LogIn size={16} />
               Login
             </button>
-          ) : (
+          )}
+          {location.pathname !== "/signup" && (
             <button
               onClick={() => navigate("/signup")}
               className="px-4 py-2 flex justify-center items-center gap-x-2 rounded-lg text-sm bg-white text-black hover:bg-white/90 transition cursor-pointer hover:underline"
