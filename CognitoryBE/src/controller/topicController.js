@@ -42,10 +42,7 @@ export const createTopic = async (req, res) => {
     }
 
     const createdTopic = await session.withTransaction(async () => {
-      const notExistIds = await verifyModelReferences(refsToCheck, session);
-      if (notExistIds.length > 0) {
-        return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
-      }
+      await verifyModelReferences(refsToCheck, session);
 
       const [topic] = await Topic.create(
         [
@@ -77,11 +74,14 @@ export const createTopic = async (req, res) => {
       201
     );
   } catch (err) {
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     if (err.name === "MongoServerError" && err.code === 11000) {
       return handleError(
         res,
         {},
-        `Topic with given name already exists in the subject`,
+        "Topic with given name already exists in the subject",
         409
       );
     }
@@ -138,10 +138,7 @@ export const getAllTopics = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const notExistIds = await verifyModelReferences(refsToCheck);
-    if (notExistIds.length > 0) {
-      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
-    }
+    await verifyModelReferences(refsToCheck);
 
     const query = Topic.find(params, "-slug -__v");
 
@@ -170,6 +167,10 @@ export const getAllTopics = async (req, res) => {
     );
   } catch (err) {
     console.error("Fetch topics error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     return handleError(res, err, "Failed to fetch topics", 500);
   }
 };

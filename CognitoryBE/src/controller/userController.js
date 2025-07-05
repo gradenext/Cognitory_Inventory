@@ -71,20 +71,13 @@ export const signup = async (req, res) => {
     const createdUser = await session.withTransaction(async () => {
       const existingUser = await User.findOne({ email }).session(session);
       if (existingUser) {
-        return handleError(res, {}, "User already exists", 400);
+        throw new Error("User with this email already exists");
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const [user] = await User.create(
-        [
-          {
-            name,
-            email,
-            password: hashedPassword,
-            role: "user",
-          },
-        ],
+        [{ name, email, password: hashedPassword, role: "user" }],
         { session }
       );
 
@@ -109,14 +102,18 @@ export const signup = async (req, res) => {
       201
     );
   } catch (err) {
-    console.error("Create user error:", err);
+    console.error("Signup error:", err);
+
+    if (err.message?.includes("already exists")) {
+      return handleError(res, {}, err.message, 409);
+    }
+
     return handleError(res, err, "Signup failed", 500);
   } finally {
     await session.endSession();
   }
 };
 
-// LOGIN
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -177,24 +174,21 @@ export const login = async (req, res) => {
   }
 };
 
-// APPROVE USER (admin only)
 export const approveUser = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
     const { userId } = req.params;
-    if (!userId) return handleError(res, {}, "UserId is required", 400);
+    if (!userId) return handleError(res, {}, "User ID is required", 400);
 
-    const refsToCheck = [{ id: userId, key: "User ID" }];
-
-    const invalidIds = isValidMongoId(refsToCheck);
+    const invalidIds = isValidMongoId([{ id: userId, key: "User ID" }]);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
     const updatedUser = await session.withTransaction(async () => {
       const user = await User.findById(userId).session(session);
-      if (!user) return handleError(res, {}, "User does not exist", 404);
+      if (!user) throw new Error("User not found");
 
       user.approved = !user.approved;
       user.approvedAt = Date.now();
@@ -233,6 +227,8 @@ export const approveUser = async (req, res) => {
     );
   } catch (err) {
     console.error("Approve user error:", err);
+    if (err.message?.includes("not found"))
+      return handleError(res, {}, err.message, 404);
     return handleError(res, err, "Failed to approve user", 500);
   } finally {
     await session.endSession();
@@ -249,17 +245,14 @@ export const makeAdmin = async (req, res) => {
       return handleError(res, {}, "User ID is required", 400);
     }
 
-    const refsToCheck = [{ id: userId, key: "User ID" }];
-    const invalidIds = isValidMongoId(refsToCheck);
+    const invalidIds = isValidMongoId([{ id: userId, key: "User ID" }]);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
     const updatedUser = await session.withTransaction(async () => {
       const user = await User.findById(userId).session(session);
-      if (!user) {
-        return handleError(res, {}, "User not found", 404);
-      }
+      if (!user) throw new Error("User not found");
 
       user.role = "admin";
       await user.save({ session });
@@ -285,7 +278,9 @@ export const makeAdmin = async (req, res) => {
       200
     );
   } catch (err) {
-    console.error("Make Admin Error:", err);
+    console.error("Make admin error:", err);
+    if (err.message?.includes("not found"))
+      return handleError(res, {}, err.message, 404);
     return handleError(res, err, "Failed to make user admin", 500);
   } finally {
     await session.endSession();
@@ -364,27 +359,27 @@ export const resetPassword = async (req, res) => {
       return handleError(res, {}, "Invalid or expired token", 401);
     }
 
-    const user = await session.withTransaction(async () => {
-      const foundUser = await User.findById(decoded.id).session(session);
-      if (!foundUser) {
-        return handleError(res, {}, "User not found", 404);
-      }
+    const updatedUser = await session.withTransaction(async () => {
+      const user = await User.findById(decoded.id).session(session);
+      if (!user) throw new Error("User not found");
 
-      foundUser.password = await bcrypt.hash(newPassword, 10);
-      await foundUser.save({ session });
+      user.password = await bcrypt.hash(newPassword, 10);
+      await user.save({ session });
 
-      return foundUser;
+      return user;
     });
 
     await sendMail({
-      to: user.email,
+      to: updatedUser.email,
       subject: "Password Changed Successfully",
-      html: passwordChangedTemplate(user.name),
+      html: passwordChangedTemplate(updatedUser.name),
     });
 
     return handleSuccess(res, {}, "Password has been reset successfully", 200);
   } catch (err) {
     console.error("Reset Password Error:", err);
+    if (err.message?.includes("not found"))
+      return handleError(res, {}, err.message, 404);
     return handleError(res, err, "Reset password failed", 500);
   } finally {
     await session.endSession();
@@ -420,34 +415,34 @@ export const changePassword = async (req, res) => {
       return handleError(res, {}, "Passwords do not match", 400);
     }
 
-    const user = await session.withTransaction(async () => {
-      const foundUser = await User.findById(userId).session(session);
-      if (!foundUser) {
-        return handleError(res, {}, "User not found", 404);
-      }
+    const updatedUser = await session.withTransaction(async () => {
+      const user = await User.findById(userId).session(session);
+      if (!user) throw new Error("User not found");
 
-      const isValid = await bcrypt.compare(oldPassword, foundUser.password);
-      if (!isValid) {
-        return handleError(res, {}, "Old password incorrect", 400);
-      }
+      const isValid = await bcrypt.compare(oldPassword, user.password);
+      if (!isValid) throw new Error("Old password incorrect");
 
-      foundUser.password = await bcrypt.hash(newPassword, 10);
-      await foundUser.save({ session });
+      user.password = await bcrypt.hash(newPassword, 10);
+      await user.save({ session });
 
-      return foundUser;
+      return user;
     });
 
-    if (!user) return; // already handled
-
     await sendMail({
-      to: user.email,
+      to: updatedUser.email,
       subject: "Password Changed",
-      html: passwordChangedTemplate(user.name),
+      html: passwordChangedTemplate(updatedUser.name),
     });
 
     return handleSuccess(res, {}, "Password changed successfully", 200);
   } catch (err) {
     console.error("Change Password Error:", err);
+    if (
+      err.message?.includes("not found") ||
+      err.message?.includes("incorrect")
+    ) {
+      return handleError(res, {}, err.message, 400);
+    }
     return handleError(res, err, "Change password failed", 500);
   } finally {
     await session.endSession();
@@ -460,26 +455,21 @@ export const softDeleteUser = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const refsToCheck = [{ id: userId, key: "User ID" }];
-    const invalidIds = isValidMongoId(refsToCheck);
+    const invalidIds = isValidMongoId([{ id: userId, key: "User ID" }]);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
     const deletedUser = await session.withTransaction(async () => {
       const user = await User.findById(userId).session(session);
-      if (!user) {
-        return handleError(res, {}, "User not found", 404);
-      }
+      if (!user) throw new Error("User not found");
 
       user.deletedAt = new Date();
       await user.save({ session });
 
-      const updatedUser = await User.findById(userId)
+      return await User.findById(userId)
         .select("-password -__v")
         .session(session);
-
-      return updatedUser;
     });
 
     return handleSuccess(
@@ -490,6 +480,8 @@ export const softDeleteUser = async (req, res) => {
     );
   } catch (err) {
     console.error("Soft delete user error:", err);
+    if (err.message?.includes("not found"))
+      return handleError(res, {}, err.message, 404);
     return handleError(res, err, "Failed to soft delete user", 500);
   } finally {
     await session.endSession();
@@ -502,30 +494,25 @@ export const demoteAdmin = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const refsToCheck = [{ id: userId, key: "User ID" }];
-    const invalidIds = isValidMongoId(refsToCheck);
+    const invalidIds = isValidMongoId([{ id: userId, key: "User ID" }]);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
     const updatedUser = await session.withTransaction(async () => {
       const user = await User.findById(userId).session(session);
-      if (!user) {
-        return handleError(res, {}, "User not found", 404);
-      }
+      if (!user) throw new Error("User not found");
 
       if (user.role !== "admin") {
-        return handleError(res, {}, "User is not an admin", 400);
+        throw new Error("User is not an admin");
       }
 
       user.role = "user";
       await user.save({ session });
 
-      const sanitizedUser = await User.findById(user._id)
+      return await User.findById(user._id)
         .select("-password -__v")
         .session(session);
-
-      return sanitizedUser;
     });
 
     return handleSuccess(
@@ -536,6 +523,11 @@ export const demoteAdmin = async (req, res) => {
     );
   } catch (err) {
     console.error("Demote admin error:", err);
+    if (
+      err.message?.includes("not found") ||
+      err.message?.includes("not an admin")
+    )
+      return handleError(res, {}, err.message, 400);
     return handleError(res, err, "Failed to demote admin", 500);
   } finally {
     await session.endSession();

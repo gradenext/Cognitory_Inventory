@@ -45,10 +45,7 @@ export const createSubtopic = async (req, res) => {
     }
 
     const createdSubtopic = await session.withTransaction(async () => {
-      const missing = await verifyModelReferences(refsToCheck, session);
-      if (missing.length > 0) {
-        return handleError(res, {}, `${missing.join(", ")} not found`, 404);
-      }
+      await verifyModelReferences(refsToCheck, session);
 
       const [subtopic] = await Subtopic.create(
         [
@@ -83,11 +80,14 @@ export const createSubtopic = async (req, res) => {
   } catch (err) {
     console.error("Create subtopic error:", err);
 
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     if (err.name === "MongoServerError" && err.code === 11000) {
       return handleError(
         res,
         {},
-        `Subtopic with given name already exists in the topic`,
+        "Subtopic with given name already exists in the topic",
         409
       );
     }
@@ -147,10 +147,7 @@ export const getAllSubtopics = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const missing = await verifyModelReferences(refsToCheck);
-    if (missing.length > 0) {
-      return handleError(res, {}, `${missing.join(", ")} not found`, 404);
-    }
+    await verifyModelReferences(refsToCheck);
 
     const query = Subtopic.find(params, "-slug -__v");
 
@@ -178,7 +175,11 @@ export const getAllSubtopics = async (req, res) => {
       200
     );
   } catch (err) {
-    console.error(err);
+    console.error("Fetch subtopics error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     return handleError(res, err, "Failed to fetch subtopics", 500);
   }
 };

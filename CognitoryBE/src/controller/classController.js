@@ -30,17 +30,13 @@ export const createClass = async (req, res) => {
     const refsToCheck = [
       { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
     ];
-
     const invalidIds = isValidMongoId(refsToCheck);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
     const createdClass = await session.withTransaction(async () => {
-      const missing = await verifyModelReferences(refsToCheck, session);
-      if (missing.length > 0) {
-        return handleError(res, {}, `${missing.join(", ")} not found`, 404);
-      }
+      await verifyModelReferences(refsToCheck, session);
 
       const [newClass] = await Class.create(
         [{ name, enterprise: enterpriseId }],
@@ -67,15 +63,17 @@ export const createClass = async (req, res) => {
   } catch (err) {
     console.error("Create class error:", err);
 
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     if (err.name === "MongoServerError" && err.code === 11000) {
       return handleError(
         res,
         {},
-        `Class with given name already exists in the Enterprise`,
+        "Class with given name already exists in the Enterprise",
         409
       );
     }
-
     return handleError(res, err, "Failed to create class", 500);
   } finally {
     await session.endSession();
@@ -117,10 +115,7 @@ export const getAllClasses = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const missing = await verifyModelReferences(refsToCheck);
-    if (missing.length > 0) {
-      return handleError(res, {}, `${missing.join(", ")} not found`, 404);
-    }
+    await verifyModelReferences(refsToCheck);
 
     const query = Class.find(params, "-slug -__v");
 
@@ -148,7 +143,11 @@ export const getAllClasses = async (req, res) => {
       200
     );
   } catch (err) {
-    console.error(err);
+    console.error("Fetch classes error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     return handleError(res, err, "Failed to fetch classes", 500);
   }
 };

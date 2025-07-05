@@ -58,21 +58,13 @@ export const createLevel = async (req, res) => {
     }
 
     const level = await session.withTransaction(async () => {
-      const missingRefs = await verifyModelReferences(refsToCheck, session);
-      if (missingRefs.length > 0) {
-        return handleError(res, {}, `${missingRefs.join(", ")} not found`, 404);
-      }
+      await verifyModelReferences(refsToCheck, session);
 
       const subtopic = await Subtopic.findById(subtopicId).session(session);
       const maxLevels = Number(process.env.MAX_LEVELS_PER_SUBTOPIC) || 5;
 
       if (subtopic?.levels?.length >= maxLevels) {
-        return handleError(
-          res,
-          {},
-          `Maximum ${maxLevels} levels per subtopic allowed`,
-          404
-        );
+        throw new Error(`Maximum ${maxLevels} levels per subtopic allowed`);
       }
 
       const [level] = await Level.create(
@@ -96,29 +88,38 @@ export const createLevel = async (req, res) => {
         { session }
       );
 
-      const populatedLevel = await Level.findById(level._id)
+      return await Level.findById(level._id)
         .populate("subtopic", "name slug email image levels _id")
         .session(session);
-
-      return populatedLevel;
     });
 
     return handleSuccess(
       res,
       level,
-      `Subtopic added successfully to Topic ${level?.subtopic?.name} with id ${level?.subtopic?._id}`,
+      `Level added successfully to Subtopic ${level?.subtopic?.name} with id ${level?.subtopic?._id}`,
       201
     );
   } catch (err) {
     console.error("Create level error:", err);
 
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
+    if (err.message?.includes("Maximum")) {
+      return handleError(res, {}, err.message, 404);
+    }
     if (err.name === "MongoServerError" && err.code === 11000) {
-      return handleError(
-        res,
-        {},
-        `Level with given name or rank already exists in the subtopic`,
-        409
-      );
+      const duplicateField = Object.keys(err.keyPattern || {})[0];
+
+      let message = "Duplicate entry";
+
+      if (duplicateField === "name") {
+        message = "Level with given name already exists in the subtopic";
+      } else if (duplicateField === "rank") {
+        message = "Level with given rank already exists in the subtopic";
+      }
+
+      return handleError(res, {}, message, 409);
     }
 
     return handleError(res, err, "Failed to create level", 500);
@@ -183,10 +184,7 @@ export const getAllLevels = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const notExistIds = await verifyModelReferences(refsToCheck);
-    if (notExistIds.length > 0) {
-      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
-    }
+    await verifyModelReferences(refsToCheck);
 
     const query = Level.find(params, "-slug -__v");
 
@@ -214,7 +212,11 @@ export const getAllLevels = async (req, res) => {
       200
     );
   } catch (err) {
-    console.error(err);
+    console.error("Fetch levels error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     return handleError(res, err, "Failed to fetch levels", 500);
   }
 };

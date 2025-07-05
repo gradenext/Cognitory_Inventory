@@ -81,10 +81,7 @@ export const createQuestion = async (req, res) => {
     }
 
     const createdQuestion = await session.withTransaction(async () => {
-      const missing = await verifyModelReferences(refsToCheck, session);
-      if (missing.length > 0) {
-        return handleError(res, {}, `${missing.join(", ")} not found`, 404);
-      }
+      await verifyModelReferences(refsToCheck, session);
 
       const [question] = await Question.create(
         [
@@ -138,6 +135,10 @@ export const createQuestion = async (req, res) => {
     );
   } catch (err) {
     console.error("Create question error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     return handleError(res, err, "Failed to create question", 500);
   } finally {
     await session.endSession();
@@ -210,10 +211,7 @@ export const getAllQuestions = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const missing = await verifyModelReferences(refsToCheck);
-    if (missing.length > 0) {
-      return handleError(res, {}, `${missing.join(", ")} not found`, 404);
-    }
+    await verifyModelReferences(refsToCheck);
 
     const query = Question.find(params, "-__v").populate([
       { path: "enterprise", select: "_id name" },
@@ -251,6 +249,10 @@ export const getAllQuestions = async (req, res) => {
     );
   } catch (err) {
     console.error("Fetch questions error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     return handleError(res, err, "Failed to fetch questions", 500);
   }
 };

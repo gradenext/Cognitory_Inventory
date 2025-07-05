@@ -41,10 +41,7 @@ export const reviewQuestion = async (req, res) => {
     }
 
     const review = await session.withTransaction(async () => {
-      const notFound = await verifyModelReferences(refsToCheck, session);
-      if (notFound.length > 0) {
-        return handleError(res, {}, `${notFound.join(", ")} not found`, 404);
-      }
+      await verifyModelReferences(refsToCheck, session);
 
       const existing = await Review.findOne({ questionId }).session(session);
 
@@ -88,6 +85,10 @@ export const reviewQuestion = async (req, res) => {
     );
   } catch (err) {
     console.error("Review question error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     return handleError(res, err, "Failed to review question", 500);
   } finally {
     await session.endSession();

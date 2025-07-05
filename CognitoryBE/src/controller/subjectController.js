@@ -39,10 +39,7 @@ export const createSubject = async (req, res) => {
     }
 
     const createdSubject = await session.withTransaction(async () => {
-      const notExistIds = await verifyModelReferences(refsToCheck, session);
-      if (notExistIds.length > 0) {
-        return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
-      }
+      await verifyModelReferences(refsToCheck, session);
 
       const [subject] = await Subject.create(
         [{ name, enterprise: enterpriseId, class: classId }],
@@ -67,11 +64,14 @@ export const createSubject = async (req, res) => {
       201
     );
   } catch (err) {
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     if (err.name === "MongoServerError" && err.code === 11000) {
       return handleError(
         res,
         {},
-        `Subject with given name already exists in the class`,
+        "Subject with given name already exists in the class",
         409
       );
     }
@@ -123,10 +123,7 @@ export const getAllSubjects = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const notExistIds = await verifyModelReferences(refsToCheck);
-    if (notExistIds.length > 0) {
-      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
-    }
+    await verifyModelReferences(refsToCheck);
 
     const query = Subject.find(params, "-slug -__v");
 
@@ -155,6 +152,10 @@ export const getAllSubjects = async (req, res) => {
     );
   } catch (err) {
     console.error("Fetch subjects error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
     return handleError(res, err, "Failed to fetch subjects", 500);
   }
 };

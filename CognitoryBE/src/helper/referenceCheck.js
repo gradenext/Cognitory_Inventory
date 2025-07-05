@@ -7,7 +7,11 @@ export const verifyModelReferences = async (refs = [], session = null) => {
     })
   );
 
-  return refs
+  const missing = refs
     .filter((_, index) => !existenceChecks[index])
     .map(({ key }) => key);
+
+  if (missing.length > 0) {
+    throw new Error(`${missing.join(", ")} not found`);
+  }
 };
