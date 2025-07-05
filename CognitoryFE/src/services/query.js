@@ -5,7 +5,7 @@ import {
   getSubjects,
   getSubtopics,
   getTopics,
-} from "./api";
+} from "./getAPIs";
 
 export const useQueryObject = (
   enterpriseId,

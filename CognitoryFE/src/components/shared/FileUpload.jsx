@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
-import { ArrowUpToLine, X } from "lucide-react";
+import { ArrowUpFromLine, X } from "lucide-react";
 
-const ImageUpload = ({ onSelect, error, disabled = false }) => {
+const ImageUpload = ({ onSelect, disabled = false }) => {
   const fileInputRef = useRef(null);
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
@@ -17,23 +17,15 @@ const ImageUpload = ({ onSelect, error, disabled = false }) => {
       preview: URL.createObjectURL(file),
     }));
 
-    const updatedFiles = [...files, ...selectedFiles];
-    const updatedPreviews = [...previews, ...newPreviews];
-
-    setFiles(updatedFiles);
-    setPreviews(updatedPreviews);
+    setFiles((prev) => [...prev, ...selectedFiles]);
+    setPreviews((prev) => [...prev, ...newPreviews]);
   };
 
   const removeImage = (index) => {
-    const updatedFiles = [...files];
-    const updatedPreviews = [...previews];
-
     URL.revokeObjectURL(previews[index].preview);
-    updatedFiles.splice(index, 1);
-    updatedPreviews.splice(index, 1);
 
-    setFiles(updatedFiles);
-    setPreviews(updatedPreviews);
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -42,9 +34,9 @@ const ImageUpload = ({ onSelect, error, disabled = false }) => {
 
   return (
     <div
-      className={`max-w-[80%] min-h-64 flex flex-col justify-between mx-auto p-6 bg-black rounded-xl shadow border border-gray-200 space-y-6 ${
-        disabled ? "opacity-60 pointer-events-none select-none" : ""
-      }`}
+      className={`w-full flex flex-col justify-between min-h-64 mx-auto p-6 rounded-2xl border border-white/20 backdrop-blur-md bg-white/10 shadow-lg space-y-6 transition-all
+        ${disabled ? "opacity-60 pointer-events-none select-none" : ""}
+      `}
     >
       {/* Hidden file input */}
       <input
@@ -60,22 +52,22 @@ const ImageUpload = ({ onSelect, error, disabled = false }) => {
       {/* Preview Grid */}
       <div>
         {previews.length > 0 && (
-          <div className="flex justify-center items-center flex-wrap gap-4">
+          <div className="flex flex-wrap justify-center items-center gap-4">
             {previews.map((img, index) => (
               <div
                 key={index}
-                className="relative w-fit p-1 group border border-white rounded-md shadow-sm"
+                className="relative w-48 h-48 p-2 rounded-xl border border-white/30 shadow-inner backdrop-blur-sm"
               >
                 <img
                   src={img.preview}
                   alt={`preview-${index}`}
-                  className="h-32 w-32 object-contain"
+                  className="w-full h-full object-contain"
                 />
                 {!disabled && (
                   <button
                     type="button"
                     onClick={() => removeImage(index)}
-                    className="absolute cursor-pointer z-50 -top-2 -right-2 bg-white text-black rounded-full p-1 text-xs hover:bg-opacity-80"
+                    className="absolute -top-2 -right-2 z-10 bg-white text-black rounded-full p-1 hover:bg-opacity-80 transition"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -87,23 +79,23 @@ const ImageUpload = ({ onSelect, error, disabled = false }) => {
       </div>
 
       {/* Upload Button */}
-      <button
-        type="button"
-        onClick={handleButtonClick}
-        disabled={disabled}
-        className={`w-1/3 mx-auto flex items-center justify-center gap-2 py-3 px-4 rounded-md border transition font-medium 
-          ${
-            disabled
-              ? "bg-gray-700 text-gray-300 border-gray-400 cursor-not-allowed"
-              : "bg-black text-white hover:bg-white hover:text-black border-white"
-          }
-        `}
-      >
-        <ArrowUpToLine className="h-5 w-5" />
-        Upload
-      </button>
-
-      {error && <div className="text-white text-xs">*{error}</div>}
+      <div className="w-full flex justify-center">
+        <button
+          type="button"
+          onClick={handleButtonClick}
+          disabled={disabled}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition border cursor-pointer
+            ${
+              disabled
+                ? "bg-gray-700 text-gray-300 border-gray-400 cursor-not-allowed"
+                : "bg-white/20 text-black hover:bg-white hover:scale-[1.02]"
+            }
+          `}
+        >
+          <ArrowUpFromLine className="h-5 w-5" />
+          Upload Images
+        </button>
+      </div>
     </div>
   );
 };

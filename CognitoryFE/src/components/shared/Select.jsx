@@ -10,7 +10,7 @@ const Select = ({
   disabled = false,
   loading = false,
   label = "",
-  error
+  error,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState(selectedOption || null);
@@ -60,22 +60,24 @@ const Select = ({
     <div
       ref={selectRef}
       className={`relative w-full ${className} ${
-        disabled || loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+        disabled || loading ? "opacity-60 cursor-not-allowed" : ""
       }`}
     >
       {label && (
-        <div className="w-fit bg-white text-xs font-medium text-black p-1 rounded-lg border mb-1">
+        <label className=" bg-white text-black text-xs font-semibold px-2 py-0.5 rounded-full border border-white z-10 shadow-sm">
           {label}
-        </div>
+        </label>
       )}
 
       {/* Trigger */}
       <div
-        className={`flex items-center justify-between w-full p-2.5 rounded-lg transition-all ${
+        className={`flex items-center justify-between w-full px-4 py-3 mt-1 rounded-xl border text-white bg-white/10 backdrop-blur-md shadow-inner transition-all duration-200 focus-within:ring-2 focus-within:ring-white/40 focus-within:border-white
+        ${
           isOpen
-            ? "border-white rounded-b-none border-[1px] border-b-0"
-            : "border-gray-600 border"
-        } ${disabled || loading ? "bg-gray-700" : "bg-black"}`}
+            ? "border-white rounded-b-none"
+            : "border-white/20 hover:border-white/30"
+        } ${disabled || loading ? "bg-gray-800 cursor-not-allowed" : ""}
+        `}
         onClick={toggleDropdown}
         tabIndex={disabled || loading ? -1 : 0}
         role="button"
@@ -100,7 +102,7 @@ const Select = ({
                 if (onSelect) onSelect(null);
                 setIsOpen(false);
               }}
-              className="w-4 h-4 text-white"
+              className="w-4 h-4 text-white hover:text-red-400"
             />
           )}
         </div>
@@ -108,20 +110,18 @@ const Select = ({
 
       {/* Dropdown */}
       <div
-        className={`absolute z-10 w-full rounded-md border border-t-0 border-gray-600 rounded-b-lg bg-black transition-all duration-200 ease-in-out ${
+        className={`absolute z-20 w-full rounded-b-xl border border-white/20 border-t-0 bg-white/10 backdrop-blur-md transition-all duration-200 ease-in-out shadow-lg overflow-hidden ${
           isOpen
-            ? "opacity-100 max-h-60 overflow-y-auto rounded-t-none"
+            ? "opacity-100 max-h-64 overflow-y-auto"
             : "opacity-0 max-h-0 pointer-events-none"
         }`}
       >
         {/* Search */}
-        <div className="sticky top-0 bg-black p-2 border-b border-gray-600">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Search className="w-5 h-5 text-gray-400" />
-          </div>
+        <div className="sticky top-0 bg-white/10 backdrop-blur-md px-3 py-1 flex justify-between items-center border-b border-white/10">
+          <Search className="absolute left-3 top-3 w-4 h-4 text-white/50" />
           <input
             type="text"
-            className="w-full py-2 pl-10 pr-8 text-sm text-white placeholder-gray-500 bg-gray-800 rounded-md focus:outline-none"
+            className="w-full py-2 pl-10 pr-8 text-sm text-white placeholder-white/40 bg-transparent focus:outline-none"
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -130,7 +130,7 @@ const Select = ({
           {searchTerm && (
             <button
               onClick={() => setSearchTerm("")}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-200"
+              className="absolute inset-y-0 right-3 text-white/60 hover:text-white"
             >
               <X className="w-4 h-4" />
             </button>
@@ -143,10 +143,10 @@ const Select = ({
             {filteredOptions.map((option) => (
               <li
                 key={option.value}
-                className={`px-3 py-2 hover:bg-gray-800 transition-colors duration-150 flex items-center justify-between ${
+                className={`px-4 py-2 text-sm flex items-center justify-between cursor-pointer transition-colors duration-150 ${
                   selectedValue === option.value
-                    ? "bg-gray-800 text-white"
-                    : "text-gray-300"
+                    ? "bg-white/20 text-white"
+                    : "hover:bg-white/10 text-white/80"
                 }`}
                 onClick={() => handleOptionClick(option.value)}
                 role="option"
@@ -160,13 +160,16 @@ const Select = ({
             ))}
           </ul>
         ) : (
-          <li className="px-3 py-2 text-center text-sm text-gray-500">
+          <li className="px-3 py-2 text-center text-sm text-white/50">
             No options found
           </li>
         )}
       </div>
 
-      {error && <div className="text-white text-xs">*{error}</div>}
+      {/* Error Message (always rendered for layout stability) */}
+      <div className="text-red-400 text-xs min-h-[1rem] mt-1 ml-1">
+        {error ? `*${error}` : ""}
+      </div>
     </div>
   );
 };

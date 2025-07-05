@@ -9,10 +9,10 @@ import {
   PURGE,
   REGISTER,
 } from "redux-persist";
-import storage from "redux-persist/lib/storage"; // defaults to localStorage
+import storage from "redux-persist/lib/storage";
 
 import { combineReducers } from "redux";
-import { authSlice } from "./slice/authSlice";
+import userSlice from "./slice/userSlice";
 
 const persistConfig = {
   key: "root",
@@ -20,7 +20,7 @@ const persistConfig = {
 };
 
 const rootReducer = combineReducers({
-  auth: authSlice,
+  user: userSlice,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

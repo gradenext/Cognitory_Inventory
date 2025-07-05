@@ -6,14 +6,17 @@ const Input = ({
   placeholder = "",
   type = "text",
   error = null,
-  disabled = false, // ✅ added
+  disabled = false,
 }) => {
   return (
-    <div className="w-full relative my-4">
+    <div className="w-full relative ">
       {label && (
-        <div className="w-fit bg-white text-xs font-medium text-black p-1 rounded-lg border mb-1">
+        <label
+          htmlFor={name}
+          className=" bg-white text-black text-xs font-semibold px-2 py-0.5 rounded-full border border-gray-300 z-10 shadow-sm"
+        >
           {label}
-        </div>
+        </label>
       )}
       <input
         id={name}
@@ -23,15 +26,17 @@ const Input = ({
         placeholder={placeholder}
         type={type}
         disabled={disabled}
-        className={`block w-full px-4 py-2.5 rounded-md border text-white placeholder-gray-400 shadow-sm transition-all focus:outline-none focus:ring focus:ring-white focus:border-white
+        className={`w-full px-4 py-3 mt-1 rounded-xl border text-white placeholder-white/50 bg-white/10 backdrop-blur-md shadow-inner transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/40 focus:border-white
           ${
             disabled
-              ? "bg-gray-700 cursor-not-allowed opacity-60"
-              : "bg-black border-gray-300"
+              ? "bg-gray-800 text-gray-400 cursor-not-allowed opacity-60"
+              : "border-white/20"
           }
         `}
       />
-      {error && <div className="text-white text-xs mt-1">*{error}</div>}
+      <div className="text-red-400 text-xs ml-1 min-h-[1rem]">
+        {error ? `*${error}` : ""}
+      </div>
     </div>
   );
 };
