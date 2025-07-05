@@ -24,7 +24,9 @@ export const userLogin = z.object({
 // Change Password Schema
 export const changePasswordSchema = z
   .object({
-    oldPassword: z.string().min(8, "Current password is required and must be 8 characters"),
+    oldPassword: z
+      .string()
+      .min(8, "Current password is required and must be 8 characters"),
     newPassword: z
       .string()
       .min(8, "New password must be at least 8 characters"),
@@ -35,6 +37,10 @@ export const changePasswordSchema = z
   .refine((data) => data.newPassword === data.confirmNewPassword, {
     path: ["confirmNewPassword"],
     message: "New passwords do not match",
+  })
+  .refine((data) => data.oldPassword !== data.newPassword, {
+    path: ["oldPassword"],
+    message: "Old password and new password should be different",
   });
 
 // Forgot Password Schema

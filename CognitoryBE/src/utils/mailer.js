@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
 
 export const sendMail = async ({ to, subject, html }) => {
   const mailOptions = {
-    from: `"Your Brand Name" <${process.env.EMAIL_USER}>`,
+    from: `"Cognitory" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     html,

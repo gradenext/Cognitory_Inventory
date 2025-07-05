@@ -166,7 +166,7 @@ export const login = async (req, res) => {
           approved: user.approved,
         },
       },
-      "Login successful",
+      "Login successfull",
       200
     );
   } catch (err) {
@@ -255,6 +255,9 @@ export const makeAdmin = async (req, res) => {
       const user = await User.findById(userId).session(session);
       if (!user) throw new Error("User not found");
 
+      if (user?.role === "super")
+        throw new Error("You can't change super admin role");
+
       user.role = "admin";
       await user.save({ session });
 
@@ -282,6 +285,10 @@ export const makeAdmin = async (req, res) => {
     console.error("Make admin error:", err);
     if (err.message?.includes("not found"))
       return handleError(res, {}, err.message, 404);
+
+    if (err.message?.includes("super admin role"))
+      return handleError(res, {}, err.message, 201);
+
     return handleError(res, err, "Failed to make user admin", 500);
   } finally {
     await session.endSession();
@@ -391,8 +398,8 @@ export const changePassword = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
-    const userId = req.user?.id;
-    const { oldPassword, newPassword, confirmPassword } = req.body;
+    const userId = req.user?.userId;
+    const { oldPassword, newPassword, confirmNewPassword } = req.body;
 
     if (!userId) {
       return handleError(res, {}, "Unauthorized access", 401);
@@ -401,7 +408,7 @@ export const changePassword = async (req, res) => {
     const validationResult = validateWithZod(changePasswordSchema, {
       oldPassword,
       newPassword,
-      confirmPassword,
+      confirmNewPassword,
     });
     if (!validationResult.success) {
       return handleError(
@@ -410,10 +417,6 @@ export const changePassword = async (req, res) => {
         "Validation Error",
         406
       );
-    }
-
-    if (newPassword !== confirmPassword) {
-      return handleError(res, {}, "Passwords do not match", 400);
     }
 
     const updatedUser = await session.withTransaction(async () => {
@@ -504,7 +507,11 @@ export const demoteAdmin = async (req, res) => {
       const user = await User.findById(userId).session(session);
       if (!user) throw new Error("User not found");
 
-      if (user.role !== "admin") {
+      if (user?.role === "super") {
+        throw new Error("Super admin can't be demoted");
+      }
+
+      if (user?.role !== "admin") {
         throw new Error("User is not an admin");
       }
 
@@ -518,7 +525,12 @@ export const demoteAdmin = async (req, res) => {
 
     return handleSuccess(
       res,
-      updatedUser,
+      {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+      },
       "Admin demoted to user successfully",
       200
     );
@@ -529,6 +541,10 @@ export const demoteAdmin = async (req, res) => {
       err.message?.includes("not an admin")
     )
       return handleError(res, {}, err.message, 400);
+
+    if (err.message?.includes("Super admin"))
+      return handleError(res, {}, err.message, 201);
+
     return handleError(res, err, "Failed to demote admin", 500);
   } finally {
     await session.endSession();

@@ -8,18 +8,38 @@ import { verifyModelReferences } from "../helper/referenceCheck.js";
 import Review from "../models/Review.js";
 import handleSuccess from "../helper/handleSuccess.js";
 
-const reviewSchema = z.object({
-  questionId: z.string(),
-  approved: z.boolean(),
-  comment: z.string().optional(),
-  rating: z.number().min(0).max(5).optional(),
-});
+const reviewSchema = z
+  .object({
+    questionId: z.string(),
+    approved: z.boolean(),
+    comment: z.string().optional(),
+    rating: z.number().min(0).max(5).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.approved === false &&
+      (!data.comment || data.comment.trim() === "")
+    ) {
+      ctx.addIssue({
+        path: ["comment"],
+        code: z.ZodIssueCode.custom,
+        message: "Comment is required when approved is false.",
+      });
+    }
+  });
 
 export const reviewQuestion = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
-    const validationResult = validateWithZod(reviewSchema, req.body);
+    const { questionId } = req.params;
+    const { approved, comment, rating } = req.body;
+    const validationResult = validateWithZod(reviewSchema, {
+      questionId,
+      approved,
+      comment,
+      rating,
+    });
     if (!validationResult.success) {
       return handleError(
         res,
@@ -29,8 +49,7 @@ export const reviewQuestion = async (req, res) => {
       );
     }
 
-    const { questionId, approved, comment = "", rating = 0 } = req.body;
-    const reviewerId = req.user?.id;
+    const reviewerId = req.user?.userId;
 
     const refsToCheck = [
       { model: Question, id: questionId, key: "Question ID" },
@@ -43,38 +62,29 @@ export const reviewQuestion = async (req, res) => {
     const review = await session.withTransaction(async () => {
       await verifyModelReferences(refsToCheck, session);
 
-      const existing = await Review.findOne({ questionId }).session(session);
-
-      if (existing) {
-        existing.approved = approved;
-        existing.comment = comment;
-        existing.rating = rating;
-        existing.approvedAt = new Date();
-        existing.approvedBy = reviewerId;
-        await existing.save({ session });
-        return existing;
-      }
-
-      const [newReview] = await Review.create(
-        [
-          {
-            questionId,
+      const updatedReview = await Review.findOneAndUpdate(
+        { question: questionId },
+        {
+          $set: {
             approved,
             comment,
             rating,
             approvedAt: new Date(),
             approvedBy: reviewerId,
           },
-        ],
-        { session }
+        },
+        {
+          new: true,
+          upsert: true,
+          session,
+        }
       );
 
-      return newReview;
+      return updatedReview;
     });
 
-    const populatedReview = await Review.findById(review._id)
-      .populate("approvedBy", "name _id email")
-      .populate("questionId", "text _id")
+    const populatedReview = await Review.findById(review._id, "-__v")
+      .populate("approvedBy", "name _id")
       .exec();
 
     return handleSuccess(
