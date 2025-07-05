@@ -10,7 +10,6 @@ const levelSchema = new mongoose.Schema(
       required: true,
       min: 1,
       max: 10,
-      unique: true,
     },
     enterprise: {
       type: mongoose.Schema.Types.ObjectId,
@@ -47,10 +46,27 @@ const levelSchema = new mongoose.Schema(
   }
 );
 
-levelSchema.index({ slug: 1, subtopic: 1, rank: 1 }, { unique: true });
+// ✅ Unique slug within subtopic, ignoring soft-deleted
+levelSchema.index(
+  { slug: 1, subtopic: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { deletedAt: null },
+  }
+);
 
-levelSchema.pre("validate", function (next) {
-  if (!this.slug && this.name) {
+// ✅ Unique rank within subtopic, ignoring soft-deleted
+levelSchema.index(
+  { rank: 1, subtopic: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { deletedAt: null },
+  }
+);
+
+// ✅ Slug generation on create & name update
+levelSchema.pre("save", function (next) {
+  if (this.isModified("name")) {
     this.slug = slugify(this.name, { lower: true, strict: true });
   }
   next();

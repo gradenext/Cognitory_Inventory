@@ -26,10 +26,18 @@ const classSchema = new mongoose.Schema(
   }
 );
 
-classSchema.index({ slug: 1, enterprise: 1 }, { unique: true });
+// ✅ Partial index to enforce slug uniqueness under enterprise where deletedAt is null
+classSchema.index(
+  { slug: 1, enterprise: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { deletedAt: null },
+  }
+);
 
-classSchema.pre("validate", function (next) {
-  if (!this.slug && this.name) {
+// ✅ Auto-generate slug on create and update
+classSchema.pre("save", function (next) {
+  if (this.isModified("name")) {
     this.slug = slugify(this.name, { lower: true, strict: true });
   }
   next();

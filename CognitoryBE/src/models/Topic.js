@@ -4,7 +4,7 @@ import slugify from "slugify";
 const topicSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    slug: { type: String, required: true, trim: true, unique: true },
+    slug: { type: String, required: true, trim: true },
     enterprise: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Enterprise",
@@ -36,10 +36,18 @@ const topicSchema = new mongoose.Schema(
   }
 );
 
-topicSchema.index({ slug: 1, subject: 1 }, { unique: true });
+// ✅ Enforce slug uniqueness within subject, ignoring soft-deleted
+topicSchema.index(
+  { slug: 1, subject: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { deletedAt: null },
+  }
+);
 
-topicSchema.pre("validate", function (next) {
-  if (!this.slug && this.name) {
+// ✅ Generate slug from name on creation and update
+topicSchema.pre("save", function (next) {
+  if (this.isModified("name")) {
     this.slug = slugify(this.name, { lower: true, strict: true });
   }
   next();
