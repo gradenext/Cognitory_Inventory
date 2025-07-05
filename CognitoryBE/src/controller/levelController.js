@@ -96,7 +96,7 @@ export const createLevel = async (req, res) => {
     return handleSuccess(
       res,
       level,
-      `Level added successfully to Subtopic ${level?.subtopic?.name} with id ${level?.subtopic?._id}`,
+      `Level added successfully to Subtopic ${level?.subtopic?.name} `,
       201
     );
   } catch (err) {

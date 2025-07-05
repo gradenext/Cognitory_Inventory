@@ -57,7 +57,7 @@ export const createClass = async (req, res) => {
     return handleSuccess(
       res,
       createdClass,
-      `Class added successfully to Enterprise ${createdClass?.enterprise?.name} with id ${createdClass?.enterprise?._id}`,
+      `Class added successfully to Enterprise ${createdClass?.enterprise?.name} `,
       201
     );
   } catch (err) {

@@ -8,8 +8,10 @@ import {
   approveUser,
   getAllUser,
   makeAdmin,
+  softDeleteUser,
+  demoteAdmin,
 } from "../controller/userController.js";
-import { authMiddleware, isAdmin } from "../middleware/auth.js";
+import { authMiddleware, isAdmin, isSuper } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -35,10 +37,10 @@ router.patch("/approve/:userId", authMiddleware, isAdmin, approveUser);
 router.patch("/promote/:userId", authMiddleware, isAdmin, makeAdmin);
 
 // Soft delete user
-router.delete("/:userId", authMiddleware, isSuperAdmin, softDeleteUser);
+router.delete("/:userId", authMiddleware, softDeleteUser);
 
 // Demote admin
-router.patch("/demote/:userId", authMiddleware, isSuperAdmin, demoteAdmin);
+router.patch("/demote/:userId", authMiddleware, demoteAdmin);
 
 // Get all users
 router.get("/", authMiddleware, isAdmin, getAllUser);
