@@ -13,6 +13,7 @@ import subjectRoutes from "./src/routes/subjectRoutes.js";
 import topicRoutes from "./src/routes/topicRoutes.js";
 import subtopicRoutes from "./src/routes/subtopicRoutes.js";
 import questionRoutes from "./src/routes/questionRoutes.js";
+import reviewRoutes from "./src/routes/reviewRoutes.js";
 import utilRoutes from "./src/routes/utilRoutes.js";
 
 dotenv.config();
@@ -48,6 +49,7 @@ app.use("/api/v1/subject", subjectRoutes);
 app.use("/api/v1/topic", topicRoutes);
 app.use("/api/v1/subtopic", subtopicRoutes);
 app.use("/api/v1/question", questionRoutes);
+app.use("/api/v1/review", reviewRoutes);
 app.use("/api/v1/util", utilRoutes);
 
 app.get("/", (req, res) => {

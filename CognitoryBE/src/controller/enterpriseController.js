@@ -8,7 +8,6 @@ import { enterpriseSchema } from "../validations/enterprise.js";
 
 export const createEnterprise = async (req, res) => {
   const session = await mongoose.startSession();
-  let transactionStarted = false;
 
   try {
     const { name, email } = req.body;
@@ -23,22 +22,13 @@ export const createEnterprise = async (req, res) => {
       );
     }
 
-    // Start transaction
-    await session.startTransaction();
-    transactionStarted = true;
+    const enterprise = await session.withTransaction(async () => {
+      const [created] = await Enterprise.create([{ name, email }], {
+        session,
+      });
 
-    const [enterprise] = await Enterprise.create(
-      [
-        {
-          name,
-          email,
-        },
-      ],
-      { session }
-    );
-
-    await session.commitTransaction();
-    transactionStarted = false;
+      return created;
+    });
 
     return handleSuccess(
       res,
@@ -47,21 +37,18 @@ export const createEnterprise = async (req, res) => {
       201
     );
   } catch (err) {
-    if (transactionStarted) {
-      await session.abortTransaction();
-    }
+    console.error("Create enterprise error:", err);
 
     if (err.name === "MongoServerError" && err.code === 11000) {
       return handleError(
         res,
         {},
-        `Duplicate Enterprise name, use a different name`,
+        "Duplicate Enterprise name, use a different name",
         409
       );
-    } else {
-      console.error("Create enterprise error:", err);
-      return handleError(res, err, "Failed to create enterprise", 500);
     }
+
+    return handleError(res, err, "Failed to create enterprise", 500);
   } finally {
     await session.endSession();
   }
@@ -69,18 +56,31 @@ export const createEnterprise = async (req, res) => {
 
 export const getAllEnterprises = async (req, res) => {
   try {
-    const { page = 1, limit = 10, paginate = "true" } = req.query;
-    const skip = (page - 1) * limit;
+    const {
+      page = 1,
+      limit = 10,
+      paginate = "false",
+      filterDeleted = "false",
+    } = req.query;
+
+    const skip = (Number(page) - 1) * Number(limit);
     const shouldPaginate = paginate === "true";
+    const shouldFilterDeleted = filterDeleted === "true";
 
-    const query = Enterprise.find({}, "-email -slug  -__v");
-
-    if (shouldPaginate) {
-      query.skip(skip).limit(limit);
+    let params = {};
+    if (shouldFilterDeleted) {
+      params.deletedAt = null;
     }
 
-    const enterprises = await query.exec();
-    const totalCount = await Enterprise.countDocuments({});
+    const query = Enterprise.find(params, "-slug -__v");
+    if (shouldPaginate) {
+      query.skip(skip).limit(Number(limit));
+    }
+
+    const [enterprises, totalCount] = await Promise.all([
+      query.exec(),
+      Enterprise.countDocuments(params),
+    ]);
 
     return handleSuccess(
       res,
@@ -88,7 +88,7 @@ export const getAllEnterprises = async (req, res) => {
         ...(shouldPaginate && {
           page: Number(page),
           limit: Number(limit),
-          totalPages: Math.ceil(totalCount / limit),
+          totalPages: Math.ceil(totalCount / Number(limit)),
         }),
         total: totalCount,
         enterprises,
@@ -97,28 +97,35 @@ export const getAllEnterprises = async (req, res) => {
       200
     );
   } catch (err) {
-    console.log(err)
-    return handleError(res, err, "Failed to fetch enterprise", 500);
+    console.error(err);
+    return handleError(res, err, "Failed to fetch enterprises", 500);
   }
 };
 
 export const getEnterpriseById = async (req, res) => {
   try {
     const { enterpriseId } = req.params;
+    const { showDeleted = "false" } = req.query;
+
+    const role = req?.user?.role || "user";
+    const isSuper = role === "super";
+    const allowDeleted = showDeleted === "true";
 
     const refsToCheck = [{ id: enterpriseId, key: "Enterprise ID" }];
-
     const invalidIds = isValidMongoId(refsToCheck);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const enterprise = await Enterprise.findById(
-      enterpriseId,
-      " -slug  -__v"
-    );
+    let filter = { _id: enterpriseId };
+    if (!isSuper && !allowDeleted) {
+      filter.deletedAt = null;
+    }
 
-    if (!enterprise) return handleError(res, {}, "Enterprise Not found", 404);
+    const enterprise = await Enterprise.findOne(filter, "-slug -__v");
+    if (!enterprise) {
+      return handleError(res, {}, "Enterprise not found", 404);
+    }
 
     return handleSuccess(
       res,
@@ -127,7 +134,7 @@ export const getEnterpriseById = async (req, res) => {
       200
     );
   } catch (err) {
-    console.log(err);
+    console.error(err);
     return handleError(res, err, "Failed to fetch enterprise", 500);
   }
 };

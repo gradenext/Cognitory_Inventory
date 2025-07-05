@@ -14,7 +14,7 @@ import { levelSchema } from "../validations/level.js";
 
 export const createLevel = async (req, res) => {
   const session = await mongoose.startSession();
-  let transactionStarted = false;
+
   try {
     const {
       name,
@@ -49,7 +49,7 @@ export const createLevel = async (req, res) => {
       { model: Class, id: classId, key: "Class ID" },
       { model: Subject, id: subjectId, key: "Subject ID" },
       { model: Topic, id: topicId, key: "Topic ID" },
-      { model: Subtopic, id: subtopicId, key: "Sub Topic ID" },
+      { model: Subtopic, id: subtopicId, key: "Subtopic ID" },
     ];
 
     const invalidIds = isValidMongoId(refsToCheck);
@@ -57,89 +57,71 @@ export const createLevel = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    session.startTransaction();
-    transactionStarted = true;
-
-    const notExistIds = await verifyModelReferences(refsToCheck, session);
-    if (notExistIds.length > 0) {
-      await session.abortTransaction();
-      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
-    }
-
-    const subtopic = await Subtopic.findById(subtopicId).session(session);
-
-    if (subtopic?.levels?.length > process.env.MAX_LEVELS_PER_SUBTOPIC) {
-      if (transactionStarted) {
-        await session.abortTransaction();
+    const level = await session.withTransaction(async () => {
+      const missingRefs = await verifyModelReferences(refsToCheck, session);
+      if (missingRefs.length > 0) {
+        return handleError(res, {}, `${missingRefs.join(", ")} not found`, 404);
       }
 
-      return handleError(
-        res,
-        {},
-        `Maximum ${process.env.MAX_LEVELS_PER_SUBTOPIC} per subtopic can exist`,
-        404
+      const subtopic = await Subtopic.findById(subtopicId).session(session);
+      const maxLevels = Number(process.env.MAX_LEVELS_PER_SUBTOPIC) || 5;
+
+      if (subtopic?.levels?.length >= maxLevels) {
+        return handleError(
+          res,
+          {},
+          `Maximum ${maxLevels} levels per subtopic allowed`,
+          404
+        );
+      }
+
+      const [level] = await Level.create(
+        [
+          {
+            name,
+            rank,
+            enterprise: enterpriseId,
+            class: classId,
+            subject: subjectId,
+            topic: topicId,
+            subtopic: subtopicId,
+          },
+        ],
+        { session }
       );
-    }
 
-    const [level] = await Level.create(
-      [
-        {
-          name,
-          rank,
-          enterprise: enterpriseId,
-          class: classId,
-          subject: subjectId,
-          topic: topicId,
-          subtopic: subtopicId,
-        },
-      ],
-      {
-        session,
-      }
-    );
+      await Subtopic.findByIdAndUpdate(
+        subtopicId,
+        { $push: { levels: level._id } },
+        { session }
+      );
 
-    await Subtopic.findByIdAndUpdate(
-      subtopicId,
-      {
-        $push: {
-          levels: level._id,
-        },
-      },
-      {
-        session,
-      }
-    );
+      const populatedLevel = await Level.findById(level._id)
+        .populate("subtopic", "name slug email image levels _id")
+        .session(session);
 
-    const populatedLevel = await Level.findById(level._id)
-      .populate("subtopic", "name slug email image levels _id")
-      .session(session);
-
-    await session.commitTransaction();
-
-    transactionStarted = false;
+      return populatedLevel;
+    });
 
     return handleSuccess(
       res,
-      populatedLevel,
-      `Subtopic added successfully to Topic ${populatedLevel?.subtopic?.name} `,
+      level,
+      `Subtopic added successfully to Topic ${level?.subtopic?.name} with id ${level?.subtopic?._id}`,
       201
     );
   } catch (err) {
-    if (transactionStarted) {
-      await session.abortTransaction();
-    }
+    console.error("Create level error:", err);
 
     if (err.name === "MongoServerError" && err.code === 11000) {
       return handleError(
         res,
         {},
-        `Level with given name or rank already exist in the subtopic `,
+        `Level with given name or rank already exists in the subtopic`,
         409
       );
-    } else {
-      console.error("Create level error:", err);
-      return handleError(res, err, "Failed to create level", 500);
     }
+
+    return handleError(res, err, "Failed to create level", 500);
   } finally {
     await session.endSession();
   }
@@ -155,11 +137,13 @@ export const getAllLevels = async (req, res) => {
       subtopicId,
       page = 1,
       limit = 10,
-      paginate = "true",
+      paginate = "false",
+      filterDeleted = "false",
     } = req.query;
 
-    const skip = (page - 1) * limit;
+    const skip = (Number(page) - 1) * Number(limit);
     const shouldPaginate = paginate === "true";
+    const shouldFilterDeleted = filterDeleted === "true";
 
     let refsToCheck = [];
     let params = {};
@@ -170,45 +154,28 @@ export const getAllLevels = async (req, res) => {
         id: enterpriseId,
         key: "Enterprise ID",
       });
-
-      params["enterprise"] = enterpriseId;
+      params.enterprise = enterpriseId;
     }
 
     if (classId) {
-      refsToCheck.push({
-        model: Class,
-        id: classId,
-        key: "Class ID",
-      });
-
-      params["class"] = classId;
+      refsToCheck.push({ model: Class, id: classId, key: "Class ID" });
+      params.class = classId;
     }
     if (subjectId) {
-      refsToCheck.push({
-        model: Subject,
-        id: subjectId,
-        key: "Subject ID",
-      });
-
-      params["subject"] = subjectId;
+      refsToCheck.push({ model: Subject, id: subjectId, key: "Subject ID" });
+      params.subject = subjectId;
     }
     if (topicId) {
-      refsToCheck.push({
-        model: Topic,
-        id: topicId,
-        key: "Topic ID",
-      });
-
-      params["topic"] = topicId;
+      refsToCheck.push({ model: Topic, id: topicId, key: "Topic ID" });
+      params.topic = topicId;
     }
     if (subtopicId) {
-      refsToCheck.push({
-        model: Subtopic,
-        id: subtopicId,
-        key: "Sub Topic ID",
-      });
+      refsToCheck.push({ model: Subtopic, id: subtopicId, key: "Subtopic ID" });
+      params.subtopic = subtopicId;
+    }
 
-      params["subtopic"] = subtopicId;
+    if (shouldFilterDeleted) {
+      params.deletedAt = null;
     }
 
     const invalidIds = isValidMongoId(refsToCheck);
@@ -224,11 +191,13 @@ export const getAllLevels = async (req, res) => {
     const query = Level.find(params, "-slug -__v");
 
     if (shouldPaginate) {
-      query.skip(skip).limit(limit);
+      query.skip(skip).limit(Number(limit));
     }
 
-    const levels = await query.exec();
-    const totalCount = await Level.countDocuments(params);
+    const [levels, totalCount] = await Promise.all([
+      query.exec(),
+      Level.countDocuments(params),
+    ]);
 
     return handleSuccess(
       res,
@@ -236,7 +205,7 @@ export const getAllLevels = async (req, res) => {
         ...(shouldPaginate && {
           page: Number(page),
           limit: Number(limit),
-          totalPages: Math.ceil(totalCount / limit),
+          totalPages: Math.ceil(totalCount / Number(limit)),
         }),
         total: totalCount,
         levels,
@@ -245,7 +214,7 @@ export const getAllLevels = async (req, res) => {
       200
     );
   } catch (err) {
-    console.log(err);
+    console.error(err);
     return handleError(res, err, "Failed to fetch levels", 500);
   }
 };
@@ -253,18 +222,32 @@ export const getAllLevels = async (req, res) => {
 export const getLevelById = async (req, res) => {
   try {
     const { levelId } = req.params;
+    const { showDeleted = "false" } = req.query;
+
+    const role = req?.user?.role || "user";
+    const isSuper = role === "super";
+    const allowDeleted = showDeleted === "true";
 
     const refsToCheck = [{ id: levelId, key: "Level ID" }];
-
     const invalidIds = isValidMongoId(refsToCheck);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
-    const level = await Level.findById(levelId, "-slug -__v");
-    if (!level) return handleError(res, {}, "Level Not found", 404);
+
+    const filter = { _id: levelId };
+    if (!isSuper && !allowDeleted) {
+      filter.deletedAt = null;
+    }
+
+    const level = await Level.findOne(filter, "-slug -__v");
+
+    if (!level) {
+      return handleError(res, {}, "Level not found", 404);
+    }
+
     return handleSuccess(res, level, "Level fetched successfully", 200);
   } catch (err) {
-    console.log(err);
+    console.error(err);
     return handleError(res, err, "Failed to fetch level", 500);
   }
 };

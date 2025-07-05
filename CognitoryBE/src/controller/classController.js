@@ -10,7 +10,6 @@ import { classSchema } from "../validations/class.js";
 
 export const createClass = async (req, res) => {
   const session = await mongoose.startSession();
-  let transactionStarted = false;
 
   try {
     const { name, enterpriseId } = req.body;
@@ -37,60 +36,47 @@ export const createClass = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    await session.startTransaction();
-    transactionStarted = true;
-
-    const notExistIds = await verifyModelReferences(refsToCheck, session);
-    if (notExistIds.length > 0) {
-      if (transactionStarted) {
-        await session.abortTransaction();
+    const createdClass = await session.withTransaction(async () => {
+      const missing = await verifyModelReferences(refsToCheck, session);
+      if (missing.length > 0) {
+        return handleError(res, {}, `${missing.join(", ")} not found`, 404);
       }
-      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
-    }
 
-    const [newClass] = await Class.create(
-      [{ name, enterprise: enterpriseId }],
-      {
-        session,
-      }
-    );
+      const [newClass] = await Class.create(
+        [{ name, enterprise: enterpriseId }],
+        { session }
+      );
 
-    // Push new class ID into Enterprise's classIds array
-    await Enterprise.findByIdAndUpdate(
-      enterpriseId,
-      { $push: { classes: newClass._id } },
-      { session }
-    );
+      await Enterprise.findByIdAndUpdate(
+        enterpriseId,
+        { $push: { classes: newClass._id } },
+        { session }
+      );
 
-    const populatedClass = await Class.findById(newClass._id)
-      .populate("enterprise", "name slug email image classes _id")
-      .session(session);
-
-    await session.commitTransaction();
-    transactionStarted = false;
+      return await Class.findById(newClass._id)
+        .populate("enterprise", "name slug email image classes _id")
+        .session(session);
+    });
 
     return handleSuccess(
       res,
-      populatedClass,
-      `Class added successfully to Enterprise ${populatedClass?.enterprise?.name}`,
+      createdClass,
+      `Class added successfully to Enterprise ${createdClass?.enterprise?.name} with id ${createdClass?.enterprise?._id}`,
       201
     );
   } catch (err) {
-    if (transactionStarted) {
-      await session.abortTransaction();
-    }
+    console.error("Create class error:", err);
 
     if (err.name === "MongoServerError" && err.code === 11000) {
       return handleError(
         res,
         {},
-        `Class with given name already exist in the Enterprise`,
+        `Class with given name already exists in the Enterprise`,
         409
       );
-    } else {
-      console.error("Create class error:", err);
-      return handleError(res, err, "Failed to create class", 500);
     }
+
+    return handleError(res, err, "Failed to create class", 500);
   } finally {
     await session.endSession();
   }
@@ -98,9 +84,17 @@ export const createClass = async (req, res) => {
 
 export const getAllClasses = async (req, res) => {
   try {
-    const { enterpriseId, page = 1, limit = 10, paginate = "true" } = req.query;
-    const skip = (page - 1) * limit;
+    const {
+      enterpriseId,
+      page = 1,
+      limit = 10,
+      paginate = "false",
+      filterDeleted = "false",
+    } = req.query;
+
+    const skip = (Number(page) - 1) * Number(limit);
     const shouldPaginate = paginate === "true";
+    const shouldFilterDeleted = filterDeleted === "true";
 
     let refsToCheck = [];
     let params = {};
@@ -111,8 +105,11 @@ export const getAllClasses = async (req, res) => {
         id: enterpriseId,
         key: "Enterprise ID",
       });
+      params.enterprise = enterpriseId;
+    }
 
-      params["enterprise"] = enterpriseId;
+    if (shouldFilterDeleted) {
+      params.deletedAt = null;
     }
 
     const invalidIds = isValidMongoId(refsToCheck);
@@ -120,19 +117,21 @@ export const getAllClasses = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const notExistIds = await verifyModelReferences(refsToCheck);
-    if (notExistIds.length > 0) {
-      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
+    const missing = await verifyModelReferences(refsToCheck);
+    if (missing.length > 0) {
+      return handleError(res, {}, `${missing.join(", ")} not found`, 404);
     }
 
     const query = Class.find(params, "-slug -__v");
 
     if (shouldPaginate) {
-      query.skip(skip).limit(limit);
+      query.skip(skip).limit(Number(limit));
     }
 
-    const classes = await query.exec();
-    const totalCount = await Class.countDocuments(params);
+    const [classes, totalCount] = await Promise.all([
+      query.exec(),
+      Class.countDocuments(params),
+    ]);
 
     return handleSuccess(
       res,
@@ -140,7 +139,7 @@ export const getAllClasses = async (req, res) => {
         ...(shouldPaginate && {
           page: Number(page),
           limit: Number(limit),
-          totalPages: Math.ceil(totalCount / limit),
+          totalPages: Math.ceil(totalCount / Number(limit)),
         }),
         total: totalCount,
         classes,
@@ -149,27 +148,38 @@ export const getAllClasses = async (req, res) => {
       200
     );
   } catch (err) {
-    console.log(err);
+    console.error(err);
     return handleError(res, err, "Failed to fetch classes", 500);
   }
 };
 
 export const getClassById = async (req, res) => {
   try {
-    const id = req.params.classId;
+    const { classId } = req.params;
+    const { showDeleted = "false" } = req.query;
+    const role = req?.user?.role || "user";
+    const isSuper = role === "super";
+    const allowDeleted = showDeleted === "true";
 
-    const refsToCheck = [{ id: id, key: "Class ID" }];
-
+    const refsToCheck = [{ id: classId, key: "Class ID" }];
     const invalidIds = isValidMongoId(refsToCheck);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const cls = await Class.findById(id, "-slug -__v");
-    if (!cls) return handleError(res, {}, "Class Not found", 404);
+    let filter = { _id: classId };
+    if (!isSuper && !allowDeleted) {
+      filter.deletedAt = null;
+    }
+
+    const cls = await Class.findOne(filter, "-slug -__v");
+    if (!cls) {
+      return handleError(res, {}, "Class not found", 404);
+    }
+
     return handleSuccess(res, cls, "Class fetched successfully", 200);
   } catch (err) {
-    console.log(err);
+    console.error(err);
     return handleError(res, err, "Failed to fetch class", 500);
   }
 };

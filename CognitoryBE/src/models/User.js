@@ -47,6 +47,10 @@ const userSchema = new mongoose.Schema(
         ref: "Question",
       },
     ],
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

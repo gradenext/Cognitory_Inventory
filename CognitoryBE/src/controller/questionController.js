@@ -65,36 +65,33 @@ export const createQuestion = async (req, res) => {
 
     const { userId } = req.user;
 
-    const result = await session.withTransaction(async () => {
-      const refsToCheck = [
-        { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
-        { model: Class, id: classId, key: "Class ID" },
-        { model: Subject, id: subjectId, key: "Subject ID" },
-        { model: Topic, id: topicId, key: "Topic ID" },
-        { model: Subtopic, id: subtopicId, key: "Subtopic ID" },
-        { model: Level, id: levelId, key: "Level ID" },
-        { model: User, id: userId, key: "User" },
-      ];
+    const refsToCheck = [
+      { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
+      { model: Class, id: classId, key: "Class ID" },
+      { model: Subject, id: subjectId, key: "Subject ID" },
+      { model: Topic, id: topicId, key: "Topic ID" },
+      { model: Subtopic, id: subtopicId, key: "Subtopic ID" },
+      { model: Level, id: levelId, key: "Level ID" },
+      { model: User, id: userId, key: "User ID" },
+    ];
 
-      const invalidIds = isValidMongoId(refsToCheck);
-      if (invalidIds.length > 0) {
-        throw new Error(`Invalid ${invalidIds.join(", ")}`);
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const createdQuestion = await session.withTransaction(async () => {
+      const missing = await verifyModelReferences(refsToCheck, session);
+      if (missing.length > 0) {
+        return handleError(res, {}, `${missing.join(", ")} not found`, 404);
       }
 
-      const notExistIds = await verifyModelReferences(refsToCheck, session);
-      if (notExistIds.length > 0) {
-        throw new Error(`${notExistIds.join(", ")} not found`);
-      }
-
-      const [createdQuestion] = await Question.create(
+      const [question] = await Question.create(
         [
           {
             text,
             textType,
-            image: {
-              uuid: imageUUID,
-              files: images,
-            },
+            image: { uuid: imageUUID, files: images },
             type,
             options,
             answer,
@@ -112,31 +109,36 @@ export const createQuestion = async (req, res) => {
         { session }
       );
 
-      const [createdReview] = await Review.create(
-        [{ questionId: createdQuestion._id }],
-        { session }
-      );
+      const [review] = await Review.create([{ questionId: question._id }], {
+        session,
+      });
 
       await User.findByIdAndUpdate(
         userId,
-        {
-          $push: { questions: createdQuestion._id },
-        },
+        { $push: { questions: question._id } },
         { session }
       );
 
-      createdQuestion.review = createdReview._id;
-      await createdQuestion.save({ session });
+      question.review = review._id;
+      await question.save({ session });
 
-      await createdQuestion.populate({ path: "review", options: { session } });
-
-      return createdQuestion;
+      return await Question.findById(question._id)
+        .populate([
+          { path: "review", select: "-__v" },
+          { path: "creator", select: "_id name" },
+        ])
+        .session(session);
     });
 
-    return handleSuccess(res, result, "Question created successfully", 201);
-  } catch (error) {
-    console.error("Transaction failed:", error);
-    return handleError(res, error, "Internal Server Error", 500);
+    return handleSuccess(
+      res,
+      createdQuestion,
+      "Question created successfully",
+      201
+    );
+  } catch (err) {
+    console.error("Create question error:", err);
+    return handleError(res, err, "Failed to create question", 500);
   } finally {
     await session.endSession();
   }
@@ -153,13 +155,13 @@ export const getAllQuestions = async (req, res) => {
       levelId,
       page = 1,
       limit = 10,
-      paginate = "true",
+      paginate = "false",
+      filterDeleted = "false",
     } = req.query;
 
-    const { userId, role } = req.user;
-
-    const skip = (page - 1) * limit;
+    const skip = (Number(page) - 1) * Number(limit);
     const shouldPaginate = paginate === "true";
+    const shouldFilterDeleted = filterDeleted === "true";
 
     let refsToCheck = [];
     let params = {};
@@ -170,64 +172,37 @@ export const getAllQuestions = async (req, res) => {
         id: enterpriseId,
         key: "Enterprise ID",
       });
-
-      params["enterprise"] = enterpriseId;
+      params.enterprise = enterpriseId;
     }
-
     if (classId) {
-      refsToCheck.push({
-        model: Class,
-        id: classId,
-        key: "Class ID",
-      });
-
-      params["class"] = classId;
+      refsToCheck.push({ model: Class, id: classId, key: "Class ID" });
+      params.class = classId;
     }
     if (subjectId) {
-      refsToCheck.push({
-        model: Subject,
-        id: subjectId,
-        key: "Subject ID",
-      });
-
-      params["subject"] = subjectId;
+      refsToCheck.push({ model: Subject, id: subjectId, key: "Subject ID" });
+      params.subject = subjectId;
     }
     if (topicId) {
-      refsToCheck.push({
-        model: Topic,
-        id: topicId,
-        key: "Topic ID",
-      });
-
-      params["topic"] = topicId;
+      refsToCheck.push({ model: Topic, id: topicId, key: "Topic ID" });
+      params.topic = topicId;
     }
     if (subtopicId) {
-      refsToCheck.push({
-        model: Subtopic,
-        id: subtopicId,
-        key: "Sub Topic ID",
-      });
-
-      params["subtopic"] = subtopicId;
+      refsToCheck.push({ model: Subtopic, id: subtopicId, key: "Subtopic ID" });
+      params.subtopic = subtopicId;
     }
     if (levelId) {
-      refsToCheck.push({
-        model: Level,
-        id: levelId,
-        key: "Level ID",
-      });
-
-      params["level"] = levelId;
+      refsToCheck.push({ model: Level, id: levelId, key: "Level ID" });
+      params.level = levelId;
     }
 
+    const { userId, role } = req.user;
     if (userId && role === "user") {
-      refsToCheck.push({
-        model: User,
-        id: userId,
-        key: "User ID",
-      });
+      refsToCheck.push({ model: User, id: userId, key: "User ID" });
+      params.creator = userId;
+    }
 
-      params["creator"] = userId;
+    if (shouldFilterDeleted) {
+      params.deletedAt = null;
     }
 
     const invalidIds = isValidMongoId(refsToCheck);
@@ -235,9 +210,9 @@ export const getAllQuestions = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const notExistIds = await verifyModelReferences(refsToCheck);
-    if (notExistIds.length > 0) {
-      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
+    const missing = await verifyModelReferences(refsToCheck);
+    if (missing.length > 0) {
+      return handleError(res, {}, `${missing.join(", ")} not found`, 404);
     }
 
     const query = Question.find(params, "-__v").populate([
@@ -252,11 +227,13 @@ export const getAllQuestions = async (req, res) => {
     ]);
 
     if (shouldPaginate) {
-      query.skip(skip).limit(limit);
+      query.skip(skip).limit(Number(limit));
     }
 
-    const questions = await query.exec();
-    const totalCount = await Question.countDocuments(params);
+    const [questions, totalCount] = await Promise.all([
+      query.exec(),
+      Question.countDocuments(params),
+    ]);
 
     return handleSuccess(
       res,
@@ -264,7 +241,7 @@ export const getAllQuestions = async (req, res) => {
         ...(shouldPaginate && {
           page: Number(page),
           limit: Number(limit),
-          totalPages: Math.ceil(totalCount / limit),
+          totalPages: Math.ceil(totalCount / Number(limit)),
         }),
         total: totalCount,
         questions,
@@ -272,8 +249,8 @@ export const getAllQuestions = async (req, res) => {
       "Questions fetched successfully",
       200
     );
-  } catch (error) {
-    console.log(err);
+  } catch (err) {
+    console.error("Fetch questions error:", err);
     return handleError(res, err, "Failed to fetch questions", 500);
   }
 };

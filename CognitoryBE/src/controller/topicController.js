@@ -12,8 +12,6 @@ import handleSuccess from "../helper/handleSuccess.js";
 
 export const createTopic = async (req, res) => {
   const session = await mongoose.startSession();
-  let transactionStarted = false;
-
   try {
     const { name, enterpriseId, classId, subjectId } = req.body;
 
@@ -43,61 +41,53 @@ export const createTopic = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    await session.startTransaction();
-    transactionStarted = true;
-
-    const notExistIds = await verifyModelReferences(refsToCheck, session);
-    if (notExistIds.length > 0) {
-      if (transactionStarted) await session.abortTransaction();
-      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
-    }
-
-    const [topic] = await Topic.create(
-      [{ name, enterprise: enterpriseId, class: classId, subject: subjectId }],
-      {
-        session,
+    const createdTopic = await session.withTransaction(async () => {
+      const notExistIds = await verifyModelReferences(refsToCheck, session);
+      if (notExistIds.length > 0) {
+        return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
       }
-    );
 
-    await Subject.findByIdAndUpdate(
-      subjectId,
-      {
-        $push: {
-          topics: topic._id,
-        },
-      },
-      { session }
-    );
+      const [topic] = await Topic.create(
+        [
+          {
+            name,
+            enterprise: enterpriseId,
+            class: classId,
+            subject: subjectId,
+          },
+        ],
+        { session }
+      );
 
-    const populatedTopic = await Topic.findById(topic._id)
-      .populate("subject", "name slug email image topics _id")
-      .session(session);
+      await Subject.findByIdAndUpdate(
+        subjectId,
+        { $push: { topics: topic._id } },
+        { session }
+      );
 
-    await session.commitTransaction();
-    transactionStarted = false;
+      return await Topic.findById(topic._id)
+        .populate("subject", "name slug email image topics _id")
+        .session(session);
+    });
 
     return handleSuccess(
       res,
-      populatedTopic,
-      `Topic added successfully to subject ${populatedTopic?.subject?.name} `,
+      createdTopic,
+      `Topic added successfully to subject ${createdTopic?.subject?.name}`,
       201
     );
   } catch (err) {
-    if (transactionStarted) {
-      await session.abortTransaction();
-    }
-
     if (err.name === "MongoServerError" && err.code === 11000) {
       return handleError(
         res,
         {},
-        `Topic with given name already exist in the subject `,
+        `Topic with given name already exists in the subject`,
         409
       );
-    } else {
-      console.error("Create topic error:", err);
-      return handleError(res, err, "Failed to create topic", 500);
     }
+
+    console.error("Create topic error:", err);
+    return handleError(res, err, "Failed to create topic", 500);
   } finally {
     await session.endSession();
   }
@@ -112,9 +102,11 @@ export const getAllTopics = async (req, res) => {
       page = 1,
       limit = 10,
       paginate = "true",
+      filterDeleted = "false",
     } = req.query;
-    const skip = (page - 1) * limit;
+    const skip = (Number(page) - 1) * Number(limit);
     const shouldPaginate = paginate === "true";
+    const shouldFilterDeleted = filterDeleted === "true";
 
     let refsToCheck = [];
     let params = {};
@@ -125,27 +117,20 @@ export const getAllTopics = async (req, res) => {
         id: enterpriseId,
         key: "Enterprise ID",
       });
-
-      params["enterprise"] = enterpriseId;
+      params.enterprise = enterpriseId;
     }
 
     if (classId) {
-      refsToCheck.push({
-        model: Class,
-        id: classId,
-        key: "Class ID",
-      });
-
-      params["class"] = classId;
+      refsToCheck.push({ model: Class, id: classId, key: "Class ID" });
+      params.class = classId;
     }
     if (subjectId) {
-      refsToCheck.push({
-        model: Subject,
-        id: subjectId,
-        key: "Subject ID",
-      });
+      refsToCheck.push({ model: Subject, id: subjectId, key: "Subject ID" });
+      params.subject = subjectId;
+    }
 
-      params["subject"] = subjectId;
+    if (shouldFilterDeleted) {
+      params.deletedAt = null;
     }
 
     const invalidIds = isValidMongoId(refsToCheck);
@@ -161,11 +146,13 @@ export const getAllTopics = async (req, res) => {
     const query = Topic.find(params, "-slug -__v");
 
     if (shouldPaginate) {
-      query.skip(skip).limit(limit);
+      query.skip(skip).limit(Number(limit));
     }
 
-    const topics = await query.exec();
-    const totalCount = await Topic.countDocuments(params);
+    const [topics, totalCount] = await Promise.all([
+      query.exec(),
+      Topic.countDocuments(params),
+    ]);
 
     return handleSuccess(
       res,
@@ -173,7 +160,7 @@ export const getAllTopics = async (req, res) => {
         ...(shouldPaginate && {
           page: Number(page),
           limit: Number(limit),
-          totalPages: Math.ceil(totalCount / limit),
+          totalPages: Math.ceil(totalCount / Number(limit)),
         }),
         total: totalCount,
         topics,
@@ -182,14 +169,18 @@ export const getAllTopics = async (req, res) => {
       200
     );
   } catch (err) {
-    console.log(err);
-    return handleError(res, err, "Failed to fetch topic", 500);
+    console.error("Fetch topics error:", err);
+    return handleError(res, err, "Failed to fetch topics", 500);
   }
 };
 
 export const getTopicById = async (req, res) => {
   try {
     const { topicId } = req.params;
+    const { showDeleted = "false" } = req.query;
+    const role = req?.user?.role || "user";
+    const isSuper = role === "super";
+    const allowDeleted = showDeleted === "true";
 
     const refsToCheck = [{ id: topicId, key: "Topic ID" }];
 
@@ -198,12 +189,17 @@ export const getTopicById = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const topic = await Topic.findById(topicId, "-slug -__v");
+    let filter = { _id: topicId };
+    if (!isSuper && !allowDeleted) {
+      filter.deletedAt = null;
+    }
 
-    if (!topic) return handleError(res, {}, "Topic Not found", 404);
+    const topic = await Topic.findOne(filter, "-slug -__v");
+    if (!topic) return handleError(res, {}, "Topic not found", 404);
+
     return handleSuccess(res, topic, "Topic fetched successfully", 200);
   } catch (err) {
-    console.log(err);
+    console.error("Fetch topic by ID error:", err);
     return handleError(res, err, "Failed to fetch topic", 500);
   }
 };

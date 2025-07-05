@@ -11,7 +11,6 @@ import { verifyModelReferences } from "../helper/referenceCheck.js";
 
 export const createSubject = async (req, res) => {
   const session = await mongoose.startSession();
-  let transactionStarted = false;
 
   try {
     const { name, enterpriseId, classId } = req.body;
@@ -39,47 +38,35 @@ export const createSubject = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    session.startTransaction();
-    transactionStarted = true;
-
-    const notExistIds = await verifyModelReferences(refsToCheck, session);
-    if (notExistIds.length > 0) {
-      if (transactionStarted) {
-        await session.abortTransaction();
+    const createdSubject = await session.withTransaction(async () => {
+      const notExistIds = await verifyModelReferences(refsToCheck, session);
+      if (notExistIds.length > 0) {
+        return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
       }
-      return handleError(res, {}, `${notExistIds.join(", ")} not found`, 404);
-    }
 
-    const [subject] = await Subject.create(
-      [{ name, enterprise: enterpriseId, class: classId }],
-      { session }
-    );
+      const [subject] = await Subject.create(
+        [{ name, enterprise: enterpriseId, class: classId }],
+        { session }
+      );
 
-    await Class.findByIdAndUpdate(
-      classId,
-      { $push: { subjects: subject._id } },
-      { session }
-    );
+      await Class.findByIdAndUpdate(
+        classId,
+        { $push: { subjects: subject._id } },
+        { session }
+      );
 
-    const populatedSubject = await Subject.findById(subject._id)
-      .populate("class", "name slug email image subjects _id")
-      .session(session);
-
-    await session.commitTransaction();
-
-    transactionStarted = false;
+      return await Subject.findById(subject._id)
+        .populate("class", "name slug email image subjects _id")
+        .session(session);
+    });
 
     return handleSuccess(
       res,
-      populatedSubject,
-      `Subject added successfully to class ${populatedSubject?.class?.name}`,
+      createdSubject,
+      `Subject added successfully to class ${createdSubject?.class?.name}`,
       201
     );
   } catch (err) {
-    if (transactionStarted) {
-      await session.abortTransaction();
-    }
-
     if (err.name === "MongoServerError" && err.code === 11000) {
       return handleError(
         res,
@@ -104,9 +91,11 @@ export const getAllSubjects = async (req, res) => {
       page = 1,
       limit = 10,
       paginate = "true",
+      filterDeleted = "false",
     } = req.query;
-    const skip = (page - 1) * limit;
+    const skip = (Number(page) - 1) * Number(limit);
     const shouldPaginate = paginate === "true";
+    const shouldFilterDeleted = filterDeleted === "true";
 
     let refsToCheck = [];
     let params = {};
@@ -117,18 +106,16 @@ export const getAllSubjects = async (req, res) => {
         id: enterpriseId,
         key: "Enterprise ID",
       });
-
-      params["enterprise"] = enterpriseId;
+      params.enterprise = enterpriseId;
     }
 
     if (classId) {
-      refsToCheck.push({
-        model: Class,
-        id: classId,
-        key: "Class ID",
-      });
+      refsToCheck.push({ model: Class, id: classId, key: "Class ID" });
+      params.class = classId;
+    }
 
-      params["class"] = classId;
+    if (shouldFilterDeleted) {
+      params.deletedAt = null;
     }
 
     const invalidIds = isValidMongoId(refsToCheck);
@@ -144,11 +131,13 @@ export const getAllSubjects = async (req, res) => {
     const query = Subject.find(params, "-slug -__v");
 
     if (shouldPaginate) {
-      query.skip(skip).limit(limit);
+      query.skip(skip).limit(Number(limit));
     }
 
-    const subjects = await query.exec();
-    const totalCount = await Subject.countDocuments(params);
+    const [subjects, totalCount] = await Promise.all([
+      query.exec(),
+      Subject.countDocuments(params),
+    ]);
 
     return handleSuccess(
       res,
@@ -156,7 +145,7 @@ export const getAllSubjects = async (req, res) => {
         ...(shouldPaginate && {
           page: Number(page),
           limit: Number(limit),
-          totalPages: Math.ceil(totalCount / limit),
+          totalPages: Math.ceil(totalCount / Number(limit)),
         }),
         total: totalCount,
         subjects,
@@ -165,27 +154,36 @@ export const getAllSubjects = async (req, res) => {
       200
     );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Fetch subjects error:", err);
+    return handleError(res, err, "Failed to fetch subjects", 500);
   }
 };
 
 export const getSubjectById = async (req, res) => {
   try {
     const { subjectId } = req.params;
+    const { showDeleted = "false" } = req.query;
+    const role = req?.user?.role || "user";
+    const isSuper = role === "super";
+    const allowDeleted = showDeleted === "true";
 
     const refsToCheck = [{ id: subjectId, key: "Subject ID" }];
-
     const invalidIds = isValidMongoId(refsToCheck);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    const subject = await Subject.findById(subjectId, "-slug -__v");
+    let filter = { _id: subjectId };
+    if (!isSuper && !allowDeleted) {
+      filter.deletedAt = null;
+    }
 
+    const subject = await Subject.findOne(filter, "-slug -__v");
     if (!subject) return handleError(res, {}, "Subject Not found", 404);
+
     return handleSuccess(res, subject, "Subject fetched successfully", 200);
   } catch (err) {
-    console.log(err);
+    console.error("Fetch subject by ID error:", err);
     return handleError(res, err, "Failed to fetch subject", 500);
   }
 };

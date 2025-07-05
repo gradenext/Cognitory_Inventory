@@ -4,7 +4,12 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { validateWithZod } from "../validations/validate.js";
-import { userLogin, userSchema } from "../validations/user.js";
+import {
+  changePasswordSchema,
+  resetPasswordSchema,
+  userLogin,
+  userSchema,
+} from "../validations/user.js";
 import { sendMail } from "../utils/mailer.js";
 import {
   approvedTemplate,
@@ -21,14 +26,39 @@ dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET is not set in environment");
 
-// SIGNUP
+export const getAllUser = async (req, res) => {
+  try {
+    const users = await User.find({}, "-password -__v")
+      .populate("approvedBy", "name _id")
+      .exec();
+
+    return res.json({
+      success: true,
+      message: "All users fetched successfully",
+      users,
+    });
+  } catch (err) {
+    console.error("Fetch all users Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Fetch all users failed",
+      error: err.message,
+    });
+  }
+};
 
 export const signup = async (req, res) => {
   const session = await mongoose.startSession();
-  let transactionStarted = false;
 
   try {
-    const validationResult = validateWithZod(userSchema, req.body);
+    const { name, email, password, confirmPassword } = req.body;
+
+    const validationResult = validateWithZod(userSchema, {
+      name,
+      email,
+      password,
+      confirmPassword,
+    });
     if (!validationResult.success) {
       return handleError(
         res,
@@ -38,66 +68,47 @@ export const signup = async (req, res) => {
       );
     }
 
-    const { name, email, password } = req.body;
+    const createdUser = await session.withTransaction(async () => {
+      const existingUser = await User.findOne({ email }).session(session);
+      if (existingUser) {
+        return handleError(res, {}, "User already exists", 400);
+      }
 
-    await session.startTransaction();
-    transactionStarted = true;
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-    const existingUser = await User.findOne({ email }).session(session);
-    if (existingUser) {
-      await session.abortTransaction();
-      return handleError(res, {}, "User already exists", 400);
-    }
+      const [user] = await User.create(
+        [
+          {
+            name,
+            email,
+            password: hashedPassword,
+            role: "user",
+          },
+        ],
+        { session }
+      );
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const [user] = await User.create(
-      [
-        {
-          name,
-          email,
-          password: hashedPassword,
-          role: "user",
-        },
-      ],
-      { session }
-    );
-
-    try {
       await sendMail({
         to: user.email,
         subject: "Signup Successful - Awaiting Approval",
         html: signupTemplate(user.name),
       });
-    } catch (mailErr) {
-      await session.abortTransaction();
-      console.error("Email sending failed:", mailErr);
-      return handleError(
-        res,
-        { mailErr },
-        "Signup failed during email sending",
-        500
-      );
-    }
 
-    await session.commitTransaction();
-    transactionStarted = false;
+      return user;
+    });
 
     return handleSuccess(
       res,
       {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        _id: createdUser._id,
+        name: createdUser.name,
+        email: createdUser.email,
+        role: createdUser.role,
       },
       "User registered successfully",
       201
     );
   } catch (err) {
-    if (transactionStarted) {
-      await session.abortTransaction();
-    }
     console.error("Create user error:", err);
     return handleError(res, err, "Signup failed", 500);
   } finally {
@@ -108,8 +119,9 @@ export const signup = async (req, res) => {
 // LOGIN
 export const login = async (req, res) => {
   try {
-    // Validate input
-    const validationResult = validateWithZod(userLogin, req.body);
+    const { email, password } = req.body;
+
+    const validationResult = validateWithZod(userLogin, { email, password });
     if (!validationResult.success) {
       return handleError(
         res,
@@ -119,15 +131,11 @@ export const login = async (req, res) => {
       );
     }
 
-    const { email, password } = req.body;
-
-    // Find user
     const user = await User.findOne({ email });
     if (!user) {
       return handleError(res, {}, "Invalid email or password", 401);
     }
 
-    // Check approval status
     if (user.approved === false) {
       return handleError(
         res,
@@ -137,13 +145,11 @@ export const login = async (req, res) => {
       );
     }
 
-    // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return handleError(res, {}, "Invalid email or password", 401);
     }
 
-    // Generate JWT (no expiration)
     const token = jwt.sign(
       { userId: user._id, email: user.email, role: user.role },
       JWT_SECRET
@@ -166,7 +172,7 @@ export const login = async (req, res) => {
       200
     );
   } catch (err) {
-    console.error("Create user error:", err);
+    console.error("Login error:", err);
     return handleError(res, err, "Login failed", 500);
   }
 };
@@ -174,13 +180,10 @@ export const login = async (req, res) => {
 // APPROVE USER (admin only)
 export const approveUser = async (req, res) => {
   const session = await mongoose.startSession();
-  let transactionStarted = false;
+
   try {
     const { userId } = req.params;
-
-    if (!userId) {
-      return handleError(res, {}, "UserId is required", 400);
-    }
+    if (!userId) return handleError(res, {}, "UserId is required", 400);
 
     const refsToCheck = [{ id: userId, key: "User ID" }];
 
@@ -189,56 +192,46 @@ export const approveUser = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
-    await session.startTransaction();
-    transactionStarted = true;
+    const updatedUser = await session.withTransaction(async () => {
+      const user = await User.findById(userId).session(session);
+      if (!user) return handleError(res, {}, "User does not exist", 404);
 
-    const user = await User.findById(userId).session(session);
-    if (!user) {
-      if (transactionStarted) {
-        await session.abortTransaction();
+      user.approved = !user.approved;
+      user.approvedAt = Date.now();
+      user.approvedBy = req.user.userId;
+      await user.save({ session });
+
+      const approver = await User.findById(req.user.userId, "name _id").session(
+        session
+      );
+
+      if (user.approved) {
+        await sendMail({
+          to: user.email,
+          subject: "Your Account is Approved 🎉",
+          html: approvedTemplate(user.name),
+        });
       }
-      return handleError(res, {}, "User does not exist", 404);
-    }
 
-    user.approved = !user.approved;
-    user.approvedAt = Date.now();
-    user.approvedBy = req.user.userId;
-    await user.save({ session });
-
-    const approver = await User.findById(req.user.userId, "name _id").session(
-      session
-    );
-
-    // If approved now, send email
-    if (user.approved) {
-      await sendMail({
-        to: user.email,
-        subject: "Your Account is Approved 🎉",
-        html: approvedTemplate(user.name),
-      });
-    }
-
-    await session.commitTransaction();
-    transactionStarted = false;
+      return { user, approver };
+    });
 
     return handleSuccess(
       res,
       {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        approved: user.approved,
-        approvedAt: user.approvedAt,
-        approvedBy: approver,
+        _id: updatedUser.user._id,
+        name: updatedUser.user.name,
+        email: updatedUser.user.email,
+        approved: updatedUser.user.approved,
+        approvedAt: updatedUser.user.approvedAt,
+        approvedBy: updatedUser.approver,
       },
-      `User ${user.approved ? "approved" : "unapproved"} successfully`,
+      `User ${
+        updatedUser.user.approved ? "approved" : "unapproved"
+      } successfully`,
       201
     );
   } catch (err) {
-    if (transactionStarted) {
-      await session.abortTransaction();
-    }
-
     console.error("Approve user error:", err);
     return handleError(res, err, "Failed to approve user", 500);
   } finally {
@@ -246,63 +239,142 @@ export const approveUser = async (req, res) => {
   }
 };
 
-export const makeAdmin = async (req, res) => {};
+export const makeAdmin = async (req, res) => {
+  const session = await mongoose.startSession();
 
-// FORGOT PASSWORD (send reset link)
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return handleError(res, {}, "User ID is required", 400);
+    }
+
+    const refsToCheck = [{ id: userId, key: "User ID" }];
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const updatedUser = await session.withTransaction(async () => {
+      const user = await User.findById(userId).session(session);
+      if (!user) {
+        return handleError(res, {}, "User not found", 404);
+      }
+
+      user.role = "admin";
+      await user.save({ session });
+
+      await sendMail({
+        to: user.email,
+        subject: "You have been made an Admin 🎉",
+        html: `<p>Hi ${user.name},</p><p>Your role has been updated to <strong>Admin</strong>. You now have access to administrative features.</p>`,
+      });
+
+      return user;
+    });
+
+    return handleSuccess(
+      res,
+      {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+      },
+      "User promoted to admin successfully",
+      200
+    );
+  } catch (err) {
+    console.error("Make Admin Error:", err);
+    return handleError(res, err, "Failed to make user admin", 500);
+  } finally {
+    await session.endSession();
+  }
+};
+
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    const validationResult = validateWithZod(
+      z.object({ email: z.string().email() }),
+      { email }
+    );
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
     }
 
-    // Generate reset token (valid for 15 min)
+    const user = await User.findOne({ email });
+    if (!user) {
+      return handleError(res, {}, "User not found", 404);
+    }
+
     const resetToken = jwt.sign({ id: user._id }, JWT_SECRET, {
       expiresIn: "15m",
     });
-    const resetLink = `${process.env.FRONTEND_LINK}/reset-password/${resetToken}`;
+    const resetLink = `https://cognitory.vercel.app/reset-password/${resetToken}`;
 
-    // Send reset link email
     await sendMail({
       to: email,
       subject: "Password Reset Request",
       html: forgotPasswordTemplate(user.name, resetLink),
     });
 
-    return res.json({ success: true, message: "Reset link sent to email" });
+    return handleSuccess(res, {}, "Reset link sent to email", 200);
   } catch (err) {
     console.error("Forgot Password Error:", err);
-    return res
-      .status(500)
-      .json({ success: false, message: "Forgot password failed", error: err });
+    return handleError(res, err, "Forgot password failed", 500);
   }
 };
 
 export const resetPassword = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
     const { token } = req.params;
     const { newPassword, confirmPassword } = req.body;
 
+    const validationResult = validateWithZod(resetPasswordSchema, {
+      newPassword,
+      confirmPassword,
+    });
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
     if (newPassword !== confirmPassword) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Passwords do not match" });
+      return handleError(res, {}, "Passwords do not match", 400);
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(decoded.id);
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      console.error("JWT verification failed:", err);
+      return handleError(res, {}, "Invalid or expired token", 401);
     }
 
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
+    const user = await session.withTransaction(async () => {
+      const foundUser = await User.findById(decoded.id).session(session);
+      if (!foundUser) {
+        return handleError(res, {}, "User not found", 404);
+      }
+
+      foundUser.password = await bcrypt.hash(newPassword, 10);
+      await foundUser.save({ session });
+
+      return foundUser;
+    });
 
     await sendMail({
       to: user.email,
@@ -310,47 +382,62 @@ export const resetPassword = async (req, res) => {
       html: passwordChangedTemplate(user.name),
     });
 
-    return res.json({
-      success: true,
-      message: "Password has been reset successfully",
-    });
+    return handleSuccess(res, {}, "Password has been reset successfully", 200);
   } catch (err) {
     console.error("Reset Password Error:", err);
-    return res
-      .status(500)
-      .json({ success: false, message: "Reset password failed", error: err });
+    return handleError(res, err, "Reset password failed", 500);
+  } finally {
+    await session.endSession();
   }
 };
 
 export const changePassword = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
-    const userId = req.user && req.user.id;
+    const userId = req.user?.id;
     const { oldPassword, newPassword, confirmPassword } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return handleError(res, {}, "Unauthorized access", 401);
+    }
+
+    const validationResult = validateWithZod(changePasswordSchema, {
+      oldPassword,
+      newPassword,
+      confirmPassword,
+    });
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
     }
 
     if (newPassword !== confirmPassword) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Passwords do not match" });
+      return handleError(res, {}, "Passwords do not match", 400);
     }
 
-    const user = await User.findById(userId);
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    const user = await session.withTransaction(async () => {
+      const foundUser = await User.findById(userId).session(session);
+      if (!foundUser) {
+        return handleError(res, {}, "User not found", 404);
+      }
 
-    const isValid = await bcrypt.compare(oldPassword, user.password);
-    if (!isValid)
-      return res
-        .status(400)
-        .json({ success: false, message: "Old password incorrect" });
+      const isValid = await bcrypt.compare(oldPassword, foundUser.password);
+      if (!isValid) {
+        return handleError(res, {}, "Old password incorrect", 400);
+      }
 
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
+      foundUser.password = await bcrypt.hash(newPassword, 10);
+      await foundUser.save({ session });
+
+      return foundUser;
+    });
+
+    if (!user) return; // already handled
 
     await sendMail({
       to: user.email,
@@ -358,35 +445,99 @@ export const changePassword = async (req, res) => {
       html: passwordChangedTemplate(user.name),
     });
 
-    return res.json({
-      success: true,
-      message: "Password changed successfully",
-    });
+    return handleSuccess(res, {}, "Password changed successfully", 200);
   } catch (err) {
     console.error("Change Password Error:", err);
-    return res
-      .status(500)
-      .json({ success: false, message: "Change password failed", error: err });
+    return handleError(res, err, "Change password failed", 500);
+  } finally {
+    await session.endSession();
   }
 };
 
-export const getAllUser = async (req, res) => {
-  try {
-    const users = await User.find({}, "-password -__v")
-      .populate("approvedBy", "name _id")
-      .exec();
+export const softDeleteUser = async (req, res) => {
+  const session = await mongoose.startSession();
 
-    return res.json({
-      success: true,
-      message: "All users fetched successfully",
-      users,
+  try {
+    const { userId } = req.params;
+
+    const refsToCheck = [{ id: userId, key: "User ID" }];
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const deletedUser = await session.withTransaction(async () => {
+      const user = await User.findById(userId).session(session);
+      if (!user) {
+        return handleError(res, {}, "User not found", 404);
+      }
+
+      user.deletedAt = new Date();
+      await user.save({ session });
+
+      const updatedUser = await User.findById(userId)
+        .select("-password -__v")
+        .session(session);
+
+      return updatedUser;
     });
+
+    return handleSuccess(
+      res,
+      deletedUser,
+      "User soft deleted successfully",
+      200
+    );
   } catch (err) {
-    console.error("Fetch all users Error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Fetch all users failed",
-      error: err.message,
+    console.error("Soft delete user error:", err);
+    return handleError(res, err, "Failed to soft delete user", 500);
+  } finally {
+    await session.endSession();
+  }
+};
+
+export const demoteAdmin = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const { userId } = req.params;
+
+    const refsToCheck = [{ id: userId, key: "User ID" }];
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const updatedUser = await session.withTransaction(async () => {
+      const user = await User.findById(userId).session(session);
+      if (!user) {
+        return handleError(res, {}, "User not found", 404);
+      }
+
+      if (user.role !== "admin") {
+        return handleError(res, {}, "User is not an admin", 400);
+      }
+
+      user.role = "user";
+      await user.save({ session });
+
+      const sanitizedUser = await User.findById(user._id)
+        .select("-password -__v")
+        .session(session);
+
+      return sanitizedUser;
     });
+
+    return handleSuccess(
+      res,
+      updatedUser,
+      "Admin demoted to user successfully",
+      200
+    );
+  } catch (err) {
+    console.error("Demote admin error:", err);
+    return handleError(res, err, "Failed to demote admin", 500);
+  } finally {
+    await session.endSession();
   }
 };

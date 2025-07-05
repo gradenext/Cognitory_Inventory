@@ -16,7 +16,7 @@ const approvalSchema = new mongoose.Schema({
   comment: {
     type: String,
     default: "",
-  },
+  }, 
   questionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Question",

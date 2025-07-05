@@ -7,6 +7,7 @@ import {
   changePassword,
   approveUser,
   getAllUser,
+  makeAdmin,
 } from "../controller/userController.js";
 import { authMiddleware, isAdmin } from "../middleware/auth.js";
 
@@ -22,13 +23,22 @@ router.post("/login", login);
 router.post("/forgot-password", forgotPassword);
 
 // ✅ Reset password using token from email
-router.post("/reset-password/:token", resetPassword);
+router.patch("/reset-password/:token", resetPassword);
 
 // ✅ Change password (authenticated users only)
-router.post("/change-password", authMiddleware, changePassword);
+router.patch("/change-password", authMiddleware, changePassword);
 
 // Toogle Approve
-router.post("/approve/:userId", authMiddleware, isAdmin, approveUser);
+router.patch("/approve/:userId", authMiddleware, isAdmin, approveUser);
+
+// Promote to admin
+router.patch("/promote/:userId", authMiddleware, isAdmin, makeAdmin);
+
+// Soft delete user
+router.delete("/:userId", authMiddleware, isSuperAdmin, softDeleteUser);
+
+// Demote admin
+router.patch("/demote/:userId", authMiddleware, isSuperAdmin, demoteAdmin);
 
 // Get all users
 router.get("/", authMiddleware, isAdmin, getAllUser);

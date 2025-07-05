@@ -5,10 +5,10 @@ export const userSchema = z
   .object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z
       .string()
-      .min(6, "Password must be at least 6 characters"),
+      .min(8, "Password must be at least 8 characters"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     path: ["confirmPassword"],
@@ -18,19 +18,19 @@ export const userSchema = z
 // User Login Schema
 export const userLogin = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 // Change Password Schema
 export const changePasswordSchema = z
   .object({
-    currentPassword: z.string().min(6, "Current password is required"),
+    oldPassword: z.string().min(8, "Current password is required and must be 8 characters"),
     newPassword: z
       .string()
-      .min(6, "New password must be at least 6 characters"),
+      .min(8, "New password must be at least 8 characters"),
     confirmNewPassword: z
       .string()
-      .min(6, "Confirm password must be at least 6 characters"),
+      .min(8, "Confirm password must be at least 8 characters"),
   })
   .refine((data) => data.newPassword === data.confirmNewPassword, {
     path: ["confirmNewPassword"],
@@ -38,14 +38,14 @@ export const changePasswordSchema = z
   });
 
 // Forgot Password Schema
-export const forgotPasswordSchema = z
+export const resetPasswordSchema = z
   .object({
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    newPassword: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z
       .string()
-      .min(6, "Confirm password must be at least 6 characters"),
+      .min(8, "Confirm password must be at least 8 characters"),
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine((data) => data.newPassword === data.confirmPassword, {
     path: ["confirmPassword"],
     message: "Passwords do not match",
   });
