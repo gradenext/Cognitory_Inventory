@@ -31,6 +31,16 @@ export const createQuestion = async (data) => {
   }
 };
 
+export const createEnterprise = async (data) => {
+  try {
+    const response = await api.post("/enterprise", data);
+    return response?.data;
+  } catch (error) {
+    console.error("Upload error:", error);
+    toast.error(error.response?.data?.message);
+  }
+};
+
 export const createClass = async (data) => {
   try {
     const response = await api.post("/class", data);

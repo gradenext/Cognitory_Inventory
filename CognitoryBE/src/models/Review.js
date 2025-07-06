@@ -21,7 +21,6 @@ const approvalSchema = new mongoose.Schema(
     question: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Question",
-      required: true,
     },
     rating: {
       type: Number,

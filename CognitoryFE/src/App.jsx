@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import AddQuestion from "./pages/AddQuestion";
+import AddQuestion from "./components/user/AddQuestion";
 import Auth from "./pages/Auth";
 import Login from "./components/auth/Login";
 import Signup from "./components/auth/Signup";
@@ -18,12 +18,15 @@ import Class from "./components/curriculum/Class";
 import Subject from "./components/curriculum/Subject";
 import Topic from "./components/curriculum/Topic";
 import Subtopic from "./components/curriculum/Subtopic";
+import Curriculum from "./components/curriculum/Curriculum";
+import CreatedQuestion from "./components/user/CreatedQuestion";
+import ReviewedQuestion from "./components/user/ReviewedQuestion";
 
 function App() {
   const token = useSelector((state) => state?.user?.token);
   const role = useSelector((state) => state?.user?.user?.role);
   return (
-    <div className="bg-black h-screen overflow-hidden ">
+    <div className="bg-black h-screen overflow-y-auto ">
       <Navbar />
       <Routes>
         {!token ? (
@@ -39,6 +42,8 @@ function App() {
           <Route path="/admin" element={<Admin />}>
             <Route index path="my-profile" element={<MyProfile />} />
             <Route path="user" element={<Users />} />
+            <Route path="question/" element={<Enterprise />} />
+            <Route path="question/:questionId" element={<Enterprise />} />
             <Route path="curriculum/:enterpriseId" element={<Enterprise />} />
             <Route
               path="curriculum/:enterpriseId/:classId"
@@ -56,12 +61,20 @@ function App() {
               path="curriculum/:enterpriseId/:classId/:subjectId/:topicId/:subtopicId"
               element={<Subtopic />}
             />
-            <Route path="*" element={<Navigate to="/admin" replace />} />
+            <Route
+              path=""
+              element={<Navigate to="/admin/my-profile" replace />}
+            />
+            <Route
+              path="*"
+              element={<Navigate to="/admin/my-profile" replace />}
+            />
           </Route>
         ) : role === "super" ? (
           <Route path="/super" element={<Super />}>
-            <Route index element={<div className="text-white">Super</div>} />
-            <Route path="my-profile" element={<MyProfile />} />
+            <Route index path="my-profile" element={<MyProfile />} />
+            <Route path="user" element={<Users />} />
+            <Route path="curriculum" element={<Curriculum />} />
             <Route path="curriculum/:enterpriseId" element={<Enterprise />} />
             <Route
               path="curriculum/:enterpriseId/:classId"
@@ -79,7 +92,14 @@ function App() {
               path="curriculum/:enterpriseId/:classId/:subjectId/:topicId/:subtopicId"
               element={<Subtopic />}
             />
-            <Route path="*" element={<Navigate to="/super" replace />} />
+            <Route
+              path=""
+              element={<Navigate to="/super/my-profile" replace />}
+            />
+            <Route
+              path="*"
+              element={<Navigate to="/super/my-profile" replace />}
+            />
           </Route>
         ) : (
           <Route path="/user" element={<User />}>
@@ -89,7 +109,16 @@ function App() {
               path="question/add/:enterpriseId"
               element={<AddQuestion />}
             />
-            <Route path="*" element={<Navigate to="/user" replace />} />
+            <Route path="question/created" element={<CreatedQuestion />} />
+            <Route path="question/reviewed" element={<ReviewedQuestion />} />
+            <Route
+              path=""
+              element={<Navigate to="/user/my-profile" replace />}
+            />
+            <Route
+              path="*"
+              element={<Navigate to="/user/my-profile" replace />}
+            />
           </Route>
         )}
         <Route

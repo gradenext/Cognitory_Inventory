@@ -61,7 +61,7 @@ const Login = () => {
       dispatch(setUser(response?.data?.user));
       const role = response?.data?.user?.role;
       navigate(
-        role === "admin" ? "/admin" : role === "super" ? "/super" : "/user"
+        role === "admin" ? "/admin/my-profile" : role === "super" ? "/super/my-profile" : "/user/my-profile"
       );
     } catch (error) {
       toast.error(error.response.data.message);

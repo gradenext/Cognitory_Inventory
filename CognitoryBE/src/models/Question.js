@@ -15,7 +15,7 @@ const questionSchema = new mongoose.Schema(
     image: {
       uuid: {
         type: String,
-        unique: true,
+        trim: true,
       },
       files: [
         {

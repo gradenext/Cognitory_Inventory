@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import {
+  createEnterprise,
   createClass,
   createLevel,
   createSubject,
@@ -12,6 +13,7 @@ import Modal from "../shared/Modal";
 import Input from "../shared/Input";
 import Select from "../shared/Select";
 import { useQueryObject } from "../../services/query";
+import { useSelector } from "react-redux";
 
 const rankOptions = Array.from({ length: 5 }, (_, i) => ({
   label: `Rank ${i + 1}`,
@@ -20,6 +22,8 @@ const rankOptions = Array.from({ length: 5 }, (_, i) => ({
 
 const createFunction = (type) => {
   switch (type) {
+    case "enterprise":
+      return createEnterprise;
     case "class":
       return createClass;
 
@@ -43,12 +47,16 @@ const createFunction = (type) => {
 const Add = ({ type }) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [rank, setRank] = useState(null);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
+  const role = useSelector((state) => state?.user?.user?.role);
+
   const { enterpriseId, classId, subjectId, topicId, subtopicId } = useParams();
   const {
+    enterpriseQuery,
     classesQuery,
     subjectsQuery,
     topicsQuery,
@@ -58,6 +66,8 @@ const Add = ({ type }) => {
 
   const refetchQuery = (type, { classId, subjectId, topicId, subtopicId }) => {
     switch (type) {
+      case "enterprise":
+        return enterpriseQuery.refetch();
       case "class":
         return classesQuery.refetch();
       case "subject":
@@ -78,9 +88,17 @@ const Add = ({ type }) => {
   };
 
   const onSubmit = async () => {
+    if (role !== "super") {
+      toast.error("Reserver for super admin");
+      setOpen(false);
+      return;
+    }
+
     const validationErrors = {};
     if (!name.trim()) validationErrors.name = "Name is required";
     if (type === "level" && !rank) validationErrors.rank = "Rank is required";
+    if (type === "enterprise" && !email)
+      validationErrors.email = "Email is required";
 
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) return;
@@ -134,6 +152,17 @@ const Add = ({ type }) => {
       {open && (
         <Modal onClose={() => !loading && setOpen(false)} title={`Add ${type}`}>
           <div className="space-y-4 mt-4">
+            {type === "enterprise" && (
+              <Input
+                label="Email"
+                name="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter email"
+                error={errors.email}
+                disabled={loading}
+              />
+            )}
             <Input
               label="Name"
               name="name"

@@ -1,14 +1,15 @@
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
-import { addQuestionSchema } from "../validations/question";
-import { validateWithZod } from "../validations/validate";
-import Input from "../components/shared/Input";
-import FileUpload from "../components/shared/FileUpload";
-import Textarea from "../components/shared/Textarea";
-import Select from "../components/shared/Select";
-import { useQueryObject } from "../services/query";
+import { addQuestionSchema } from "../../validations/question";
+import { validateWithZod } from "../../validations/validate";
+import Input from "../shared/Input";
+import FileUpload from "../shared/FileUpload";
+import Textarea from "../shared/Textarea";
+import Select from "../shared/Select";
+import { useQueryObject } from "../../services/query";
 import toast from "react-hot-toast";
-import { createQuestion, upload } from "../services/createAPIs";
+import { createQuestion, upload } from "../../services/createAPIs";
+import { Loader2 } from "lucide-react";
 
 const AddQuestion = () => {
   const { enterpriseId } = useParams();
@@ -30,13 +31,54 @@ const AddQuestion = () => {
     levelId: "",
   });
 
-  const { classes, subjects, topics, subtopics, levels } = useQueryObject(
-    form?.enterpriseId,
-    form?.classId,
-    form?.subjectId,
-    form?.topicId,
-    form?.subtopicId
-  );
+  const {
+    classes,
+    classesQuery,
+    subjects,
+    subjectsQuery,
+    topics,
+    topicsQuery,
+    subtopics,
+    subtopicsQuery,
+    levels,
+    levelsQuery,
+  } = useQueryObject({
+    enterpriseId: form?.enterpriseId,
+    classId: form?.classId,
+    subjectId: form?.subjectId,
+    topicId: form?.topicId,
+    subtopicId: form?.subtopicId,
+  });
+
+  const classList =
+    classes?.classes?.map((cls) => ({
+      label: cls?.name,
+      value: cls?._id,
+    })) || [];
+
+  const subjectList =
+    subjects?.subjects?.map((subj) => ({
+      label: subj?.name,
+      value: subj?._id,
+    })) || [];
+
+  const topicList =
+    topics?.topics?.map((topic) => ({
+      label: topic?.name,
+      value: topic?._id,
+    })) || [];
+
+  const subtopicList =
+    subtopics?.subtopics?.map((sub) => ({
+      label: sub?.name,
+      value: sub?._id,
+    })) || [];
+
+  const levelList =
+    levels?.levels?.map((level) => ({
+      label: level?.name,
+      value: level?._id,
+    })) || [];
 
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -44,6 +86,7 @@ const AddQuestion = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setError((prev) => ({ ...prev, [name]: null }));
   };
 
   const handleOptionChange = (idx, value) => {
@@ -54,11 +97,11 @@ const AddQuestion = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError({});
 
     try {
       const validationResult = validateWithZod(addQuestionSchema, form);
       if (!validationResult?.success) {
-        console.log(validationResult.errors);
         setError(validationResult.errors);
         toast.error("Check all required fields");
         return;
@@ -66,7 +109,11 @@ const AddQuestion = () => {
       setLoading(true);
       let uploadData = {};
       if (form?.images?.length > 0) {
-        uploadData = await upload(form?.images);
+        try {
+          uploadData = await upload(form?.images);
+        } catch (error) {
+          throw new Error("Image upload failed, please try again");
+        }
       }
 
       const urls = uploadData?.urls;
@@ -89,7 +136,7 @@ const AddQuestion = () => {
         levelId: form?.levelId,
       });
 
-      toast.success(response.message);
+      toast.success(response?.message);
 
       setForm((prev) => ({
         ...prev,
@@ -104,28 +151,24 @@ const AddQuestion = () => {
       }));
     } catch (error) {
       console.log(error);
-      toast.error(error.response?.data?.message);
+      toast.error(error.response?.data?.message || error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className=" mx-auto px-6 py-10 bg-black min-h-screen">
-      <h2 className="text-2xl font-bold text-white mb-8 border-b pb-2">
-        Add New Question
-      </h2>
-
+    <div className=" mx-auto px-6 py-10 w-full">
       <form
         onSubmit={handleSubmit}
-        className="bg-black p-8 rounded-xl shadow-lg space-y-8"
+        className="p-8 rounded-xl shadow-lg space-y-8"
       >
         <div className="grid grid-cols-3 gap-2 ">
           <Select
             label="Class"
             placeholder="Select Class "
             selectedOption={form.classId}
-            onSelect={(value) =>
+            onSelect={(value) => {
               setForm((prev) => ({
                 ...prev,
                 classId: value,
@@ -133,11 +176,11 @@ const AddQuestion = () => {
                 topicId: null,
                 subtopicId: null,
                 levelId: null,
-              }))
-            }
-            disabled={!(classes?.data?.length > 0) || loading}
-            loading={classes?.isLoading}
-            options={classes?.isLoading ? [] : classes?.data}
+              }));
+            }}
+            disabled={!(classList?.length > 0) || loading}
+            loading={classesQuery?.isLoading}
+            options={classesQuery?.isLoading ? [] : classList}
             error={error?.classId}
           />
           <Select
@@ -153,10 +196,10 @@ const AddQuestion = () => {
                 levelId: null,
               }))
             }
-            disabled={!form?.classId || subjects?.isLoading || loading}
-            loading={subjects?.isLoading}
+            disabled={!form?.classId || subjectsQuery?.isLoading || loading}
+            loading={subjectsQuery?.isLoading}
             options={
-              !form?.classId || subjects?.isLoading ? [] : subjects?.data
+              !form?.classId || subjectsQuery?.isLoading ? [] : subjectList
             }
             error={error?.subjectId}
           />
@@ -172,9 +215,11 @@ const AddQuestion = () => {
                 levelId: null,
               }))
             }
-            disabled={!form?.subjectId || topics?.isLoading || loading}
-            loading={topics?.isLoading}
-            options={!form?.subjectId || topics?.isLoading ? [] : topics?.data}
+            disabled={!form?.subjectId || topicsQuery?.isLoading || loading}
+            loading={topicsQuery?.isLoading}
+            options={
+              !form?.subjectId || topicsQuery?.isLoading ? [] : topicList
+            }
             error={error?.topicId}
           />
           <Select
@@ -188,10 +233,10 @@ const AddQuestion = () => {
                 levelId: null,
               }))
             }
-            disabled={!form?.topicId || subtopics?.isLoading || loading}
-            loading={subtopics?.isLoading}
+            disabled={!form?.topicId || subtopicsQuery?.isLoading || loading}
+            loading={subtopicsQuery?.isLoading}
             options={
-              !form?.topicId || subtopics?.isLoading ? [] : subtopics?.data
+              !form?.topicId || subtopicsQuery?.isLoading ? [] : subtopicList
             }
             error={error?.subtopicId}
           />
@@ -205,9 +250,11 @@ const AddQuestion = () => {
                 levelId: value,
               }))
             }
-            disabled={!form?.subtopicId || levels?.isLoading || loading}
-            loading={levels?.isLoading}
-            options={!form?.subtopicId || levels?.isLoading ? [] : levels?.data}
+            disabled={!form?.subtopicId || levelsQuery?.isLoading || loading}
+            loading={levelsQuery?.isLoading}
+            options={
+              !form?.subtopicId || levelsQuery?.isLoading ? [] : levelList
+            }
             error={error?.levelId}
           />
 
@@ -217,12 +264,14 @@ const AddQuestion = () => {
             label="Text Type"
             placeholder="Select Text Type "
             selectedOption={form.textType}
-            onSelect={(value) =>
+            onSelect={(value) => {
               setForm((prev) => ({
                 ...prev,
                 textType: value,
-              }))
-            }
+              }));
+
+              setError((prev) => ({ ...prev, textType: null }));
+            }}
             options={[
               {
                 label: "Text",
@@ -246,12 +295,13 @@ const AddQuestion = () => {
             label="Type"
             placeholder="Select Type "
             selectedOption={form.type}
-            onSelect={(value) =>
+            onSelect={(value) => {
               setForm((prev) => ({
                 ...prev,
                 type: value,
-              }))
-            }
+              }));
+              setError((prev) => ({ ...prev, type: null }));
+            }}
             options={[
               {
                 label: "Input",
@@ -267,7 +317,7 @@ const AddQuestion = () => {
           />
         </div>
         {/* File Upload */}
-        <div>
+        {/* <div>
           <FileUpload
             onSelect={(imageArray) =>
               setForm((prev) => ({
@@ -278,7 +328,7 @@ const AddQuestion = () => {
             error={error?.images}
             disabled={loading}
           />
-        </div>
+        </div> */}
 
         {/* Input Fields */}
 
@@ -341,7 +391,11 @@ const AddQuestion = () => {
             type="submit"
             className="w-full cursor-pointer bg-black border hover:bg-white hover:text-black text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-300"
           >
-            Add Question
+            {loading ? (
+              <Loader2 className="animate-spin mx-auto" />
+            ) : (
+              "Add Question"
+            )}
           </button>
         </div>
       </form>

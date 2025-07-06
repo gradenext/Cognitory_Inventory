@@ -10,10 +10,7 @@ export const uploadFiles = async (req, res) => {
       return handleError(res, {}, "No file uploaded", 400);
     }
 
-    // Get UUID from request, or generate if not sent
     const baseUUID = req.body?.uuid || uuidv4();
-
-    // Normalize files to array
     const files = Array.isArray(req.files.file)
       ? req.files.file
       : [req.files.file];
@@ -23,10 +20,9 @@ export const uploadFiles = async (req, res) => {
         const suffix = `-${index + 1}`;
         const publicId = `${baseUUID}${files.length > 1 ? suffix : ""}`;
 
-        // Upload with public ID
+        // Upload and cleanup
         const result = await upload(file.tempFilePath, publicId);
 
-        // Delete temp file after upload
         await fs.unlink(file.tempFilePath);
 
         return result.secure_url;

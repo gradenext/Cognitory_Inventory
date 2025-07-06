@@ -158,6 +158,7 @@ export const getAllQuestions = async (req, res) => {
       limit = 10,
       paginate = "false",
       filterDeleted = "false",
+      approved,
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -206,6 +207,10 @@ export const getAllQuestions = async (req, res) => {
       params.deletedAt = null;
     }
 
+    if (approved === "true") {
+      params.approved = approved;
+    }
+
     const invalidIds = isValidMongoId(refsToCheck);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
@@ -222,7 +227,21 @@ export const getAllQuestions = async (req, res) => {
       { path: "level", select: "_id name" },
       { path: "creator", select: "_id name" },
       { path: "review", select: "-__v" },
+      {
+        path: "review",
+        select: "-__v",
+        match:
+          approved === "true"
+            ? { approved: true }
+            : approved === "false"
+            ? { approved: false }
+            : {},
+      },
     ]);
+
+    if (approved === "true" || approved === "false") {
+      query.where("review").ne(null);
+    }
 
     if (shouldPaginate) {
       query.skip(skip).limit(Number(limit));
@@ -254,5 +273,36 @@ export const getAllQuestions = async (req, res) => {
       return handleError(res, {}, err.message, 404);
     }
     return handleError(res, err, "Failed to fetch questions", 500);
+  }
+};
+
+export const getQuestionById = async (req, res) => {
+  try {
+    const { questionId } = req.params;
+    const { showDeleted = "false" } = req.query;
+    const role = req?.user?.role || "user";
+    const isSuper = role === "super";
+    const allowDeleted = showDeleted === "true";
+
+    const refsToCheck = [{ id: questionId, key: "Question ID" }];
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    let filter = { _id: questionId };
+    if (!isSuper && !allowDeleted) {
+      filter.deletedAt = null;
+    }
+
+    const cls = await Question.findOne(filter, "-slug -__v");
+    if (!cls) {
+      return handleError(res, {}, "Class not found", 404);
+    }
+
+    return handleSuccess(res, cls, "Class fetched successfully", 200);
+  } catch (err) {
+    console.error(err);
+    return handleError(res, err, "Failed to fetch class", 500);
   }
 };

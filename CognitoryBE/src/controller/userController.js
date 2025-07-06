@@ -37,7 +37,7 @@ export const getAllUser = async (req, res) => {
 
     const result = await User.find(params, "-password -__v -slug")
       .populate("approvedBy", "name _id role email image")
-      .lean()
+      .lean();
 
     const finalUsers = result.map((user) => ({
       ...user,
@@ -202,6 +202,9 @@ export const approveUser = async (req, res) => {
       const user = await User.findById(userId).session(session);
       if (!user) throw new Error("User not found");
 
+      if (user?.role === "super")
+        throw new Error("You can't change super admin data");
+
       user.approved = !user.approved;
       user.approvedAt = Date.now();
       user.approvedBy = req.user.userId;
@@ -241,6 +244,8 @@ export const approveUser = async (req, res) => {
     console.error("Approve user error:", err);
     if (err.message?.includes("not found"))
       return handleError(res, {}, err.message, 404);
+    if (err.message?.includes("super admin "))
+      return handleError(res, {}, err.message, 201);
     return handleError(res, err, "Failed to approve user", 500);
   } finally {
     await session.endSession();
