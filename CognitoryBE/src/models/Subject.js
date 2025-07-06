@@ -41,11 +41,32 @@ subjectSchema.index(
 );
 
 // ✅ Generate slug on create and when name is modified
-subjectSchema.pre("save", function (next) {
+subjectSchema.pre("validate", function (next) {
   if (this.isModified("name")) {
-    this.slug = slugify(this.name, { lower: true, strict: true });
+    this.slug = slugify(this.name.trim(), { lower: true, strict: true });
   }
   next();
 });
+
+// For update queries
+function handleSubjectSlugQuery(next) {
+  const update = this.getUpdate();
+  const name = update?.name || update?.$set?.name;
+
+  if (name) {
+    const slug = slugify(name.trim(), { lower: true, strict: true });
+    if (update?.$set) {
+      update.$set.slug = slug;
+    } else {
+      update.slug = slug;
+    }
+  }
+
+  next();
+}
+
+subjectSchema.pre("findOneAndUpdate", handleSubjectSlugQuery);
+subjectSchema.pre("updateOne", handleSubjectSlugQuery);
+subjectSchema.pre("updateMany", handleSubjectSlugQuery);
 
 export default mongoose.model("Subject", subjectSchema);

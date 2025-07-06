@@ -117,7 +117,10 @@ export const getAllClasses = async (req, res) => {
 
     await verifyModelReferences(refsToCheck);
 
-    const query = Class.find(params, "-slug -__v");
+    const query = Class.find(params, "-slug -__v").populate(
+      "enterprise",
+      "_id name"
+    );
 
     if (shouldPaginate) {
       query.skip(skip).limit(Number(limit));

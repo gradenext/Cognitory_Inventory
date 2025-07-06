@@ -140,7 +140,11 @@ export const getAllTopics = async (req, res) => {
 
     await verifyModelReferences(refsToCheck);
 
-    const query = Topic.find(params, "-slug -__v");
+    const query = Topic.find(params, "-slug -__v").populate([
+      { path: "enterprise", select: "_id name" },
+      { path: "class", select: "_id name" },
+      { path: "subject", select: "_id name" },
+    ]);
 
     if (shouldPaginate) {
       query.skip(skip).limit(Number(limit));

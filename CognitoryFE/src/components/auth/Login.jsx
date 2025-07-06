@@ -60,7 +60,9 @@ const Login = () => {
       dispatch(setToken(response?.data?.token));
       dispatch(setUser(response?.data?.user));
       const role = response?.data?.user?.role;
-      navigate(role !== "admin" || role !== "super" ? "/user" : "/admin");
+      navigate(
+        role === "admin" ? "/admin" : role === "super" ? "/super" : "/user"
+      );
     } catch (error) {
       toast.error(error.response.data.message);
     } finally {

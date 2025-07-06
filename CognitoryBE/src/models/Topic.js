@@ -46,11 +46,32 @@ topicSchema.index(
 );
 
 // ✅ Generate slug from name on creation and update
-topicSchema.pre("save", function (next) {
+topicSchema.pre("validate", function (next) {
   if (this.isModified("name")) {
-    this.slug = slugify(this.name, { lower: true, strict: true });
+    this.slug = slugify(this.name.trim(), { lower: true, strict: true });
   }
   next();
 });
+
+// For update queries
+function handleTopicSlugQuery(next) {
+  const update = this.getUpdate();
+  const name = update?.name || update?.$set?.name;
+
+  if (name) {
+    const slug = slugify(name.trim(), { lower: true, strict: true });
+    if (update?.$set) {
+      update.$set.slug = slug;
+    } else {
+      update.slug = slug;
+    }
+  }
+
+  next();
+}
+
+topicSchema.pre("findOneAndUpdate", handleTopicSlugQuery);
+topicSchema.pre("updateOne", handleTopicSlugQuery);
+topicSchema.pre("updateMany", handleTopicSlugQuery);
 
 export default mongoose.model("Topic", topicSchema);

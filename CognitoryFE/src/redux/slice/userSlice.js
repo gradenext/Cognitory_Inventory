@@ -8,6 +8,7 @@ export const userSlice = createSlice({
   },
   reducers: {
     setToken: (state, action) => {
+      localStorage.setItem("token", action.payload);
       state.token = action.payload;
     },
     setUser: (state, action) => {

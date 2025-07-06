@@ -35,12 +35,32 @@ classSchema.index(
   }
 );
 
-// ✅ Auto-generate slug on create and update
-classSchema.pre("save", function (next) {
+classSchema.pre("validate", function (next) {
   if (this.isModified("name")) {
     this.slug = slugify(this.name, { lower: true, strict: true });
   }
   next();
 });
+
+function handleSlugInQueryMiddleware(next) {
+  const update = this.getUpdate();
+  const name = update?.name || update?.$set?.name;
+
+  if (name) {
+    const slug = slugify(name, { lower: true, strict: true });
+
+    if (update?.$set) {
+      this.getUpdate().$set.slug = slug;
+    } else {
+      this.getUpdate().slug = slug;
+    }
+  }
+
+  next();
+}
+
+classSchema.pre("findOneAndUpdate", handleSlugInQueryMiddleware);
+classSchema.pre("updateOne", handleSlugInQueryMiddleware);
+classSchema.pre("updateMany", handleSlugInQueryMiddleware);
 
 export default mongoose.model("Class", classSchema);

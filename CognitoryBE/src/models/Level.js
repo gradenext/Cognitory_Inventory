@@ -64,12 +64,33 @@ levelSchema.index(
   }
 );
 
-// ✅ Slug generation on create & name update
-levelSchema.pre("save", function (next) {
+// ✅ Slug generation on create & name upda te
+levelSchema.pre("validate", function (next) {
   if (this.isModified("name")) {
-    this.slug = slugify(this.name, { lower: true, strict: true });
+    this.slug = slugify(this.name.trim(), { lower: true, strict: true });
   }
   next();
 });
+
+// For update queries
+function handleLevelSlugQuery(next) {
+  const update = this.getUpdate();
+  const name = update?.name || update?.$set?.name;
+
+  if (name) {
+    const slug = slugify(name.trim(), { lower: true, strict: true });
+    if (update?.$set) {
+      update.$set.slug = slug;
+    } else {
+      update.slug = slug;
+    }
+  }
+
+  next();
+}
+
+levelSchema.pre("findOneAndUpdate", handleLevelSlugQuery);
+levelSchema.pre("updateOne", handleLevelSlugQuery);
+levelSchema.pre("updateMany", handleLevelSlugQuery);
 
 export default mongoose.model("Level", levelSchema);

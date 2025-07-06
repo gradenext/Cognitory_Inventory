@@ -1,17 +1,13 @@
 import toast from "react-hot-toast";
-import { v4 as uuidv4 } from "uuid";
 import { api } from "./api";
 
 export const getClasses = async (enterpriseId) => {
   try {
     const response = await api.get(
-      `/class?enterpriseId=${enterpriseId}&paginate=false`
+      `/class?enterpriseId=${enterpriseId}&paginate=false&filterDeleted=true`
     );
 
-    return response?.data?.data?.classes?.map((item) => ({
-      value: item?._id,
-      label: item?.name,
-    }));
+    return response?.data?.data;
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
@@ -22,12 +18,9 @@ export const getClasses = async (enterpriseId) => {
 export const getSubjects = async (classId) => {
   try {
     const response = await api.get(
-      `/subject?classId=${classId}&paginate=false`
+      `/subject?classId=${classId}&paginate=false&filterDeleted=true`
     );
-    return response?.data?.data?.subjects?.map((item) => ({
-      value: item?._id,
-      label: item?.name,
-    }));
+    return response?.data?.data;
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
@@ -38,12 +31,9 @@ export const getSubjects = async (classId) => {
 export const getTopics = async (subjectId) => {
   try {
     const response = await api.get(
-      `/topic?subjectId=${subjectId}&paginate=false`
+      `/topic?subjectId=${subjectId}&paginate=false&filterDeleted=true`
     );
-    return response?.data?.data?.topics?.map((item) => ({
-      value: item?._id,
-      label: item?.name,
-    }));
+    return response?.data?.data;
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
@@ -54,12 +44,9 @@ export const getTopics = async (subjectId) => {
 export const getSubtopics = async (topicId) => {
   try {
     const response = await api.get(
-      `/subtopic?topicId=${topicId}&paginate=false`
+      `/subtopic?topicId=${topicId}&paginate=false&filterDeleted=true`
     );
-    return response?.data?.data?.subtopics?.map((item) => ({
-      value: item?._id,
-      label: item?.name,
-    }));
+    return response?.data?.data;
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
@@ -70,12 +57,9 @@ export const getSubtopics = async (topicId) => {
 export const getLevels = async (subtopicId) => {
   try {
     const response = await api.get(
-      `/level?subtopicId=${subtopicId}&paginate=false`
+      `/level?subtopicId=${subtopicId}&paginate=false&filterDeleted=true`
     );
-    return response?.data?.data?.levels?.map((item) => ({
-      value: item?._id,
-      label: `${item?.rank} - ${item?.name} `,
-    }));
+    return response?.data?.data;
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
@@ -83,31 +67,13 @@ export const getLevels = async (subtopicId) => {
   }
 };
 
-export const upload = async (filesArray) => {
+export const getAllUsers = async () => {
   try {
-    const uuid = uuidv4();
-    const formData = new FormData();
-
-    filesArray.forEach((file) => {
-      formData.append("file", file); // use same key for multiple files
-    });
-
-    formData.append("uuid", uuid);
-
-    const response = await api.post("/util/upload", formData);
-    return response?.data?.data;
+    const response = await api.get(`/user`);
+    return response?.data?.users;
   } catch (error) {
-    console.error("Upload error:", error);
+    console.log(error);
     toast.error(error.response?.data?.message);
-  }
-};
-
-export const createQuestion = async (data) => {
-  try {
-    const response = await api.post("/question", data);
-    return response?.data;
-  } catch (error) {
-    console.error("Upload error:", error);
-    toast.error(error.response?.data?.message);
+    return [];
   }
 };

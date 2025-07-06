@@ -7,13 +7,13 @@ import {
   getTopics,
 } from "./getAPIs";
 
-export const useQueryObject = (
-  enterpriseId,
-  classId,
-  subjectId,
-  topicId,
-  subtopicId
-) => {
+export const useQueryObject = ({
+  enterpriseId = null,
+  classId = null,
+  subjectId = null,
+  topicId = null,
+  subtopicId = null,
+}) => {
   const classes = useQuery({
     queryKey: ["class", enterpriseId],
     queryFn: () => getClasses(enterpriseId),
@@ -44,5 +44,20 @@ export const useQueryObject = (
     enabled: !!subtopicId,
   });
 
-  return { classes, subjects, topics, subtopics, levels };
+  return {
+    classes: classes?.data,
+    classesQuery: classes,
+
+    subjects: subjects?.data,
+    subjectsQuery: subjects,
+
+    topics: topics?.data,
+    topicsQuery: topics,
+
+    subtopics: subtopics?.data,
+    subtopicsQuery: subtopics,
+
+    levels: levels?.data,
+    levelsQuery: levels,
+  };
 };

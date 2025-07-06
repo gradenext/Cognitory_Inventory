@@ -17,7 +17,7 @@ const Auth = () => {
       </div>
 
       {/* Glass Form Container */}
-      <div className="relative z-10 flex h-full items-center justify-center mt-24 mb-8 ">
+      <div className="relative z-10 flex h-full items-center justify-center  ">
         <div className="w-[90%] max-w-md p-8 bg-white/10 backdrop-blur-md rounded-2xl shadow-lg border border-white/20">
           <Outlet />
         </div>

@@ -29,7 +29,7 @@ const Input = ({
         className={`w-full px-4 py-3 mt-1 rounded-xl border text-black placeholder-black bg-white/50 backdrop-blur-md shadow-inner transition-all duration-200 focus:outline-none focus:ring-2  focus:border-black
           ${
             disabled
-              ? "bg-gray-800 text-gray-400 cursor-not-allowed opacity-60"
+              ? "bg-gray-800 text-black cursor-not-allowed opacity-80"
               : "border-white/20"
           }
         `}

@@ -8,7 +8,7 @@ import Textarea from "../components/shared/Textarea";
 import Select from "../components/shared/Select";
 import { useQueryObject } from "../services/query";
 import toast from "react-hot-toast";
-import { createQuestion, upload } from "../services/getAPIs";
+import { createQuestion, upload } from "../services/createAPIs";
 
 const AddQuestion = () => {
   const { enterpriseId } = useParams();

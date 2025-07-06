@@ -44,3 +44,30 @@ export const changePassword = async (token, data) => {
     return Promise.reject(error);
   }
 };
+
+export const toggleApprove = async (userId) => {
+  try {
+    const response = await api.patch(`/user/approve/${userId}`);
+    return response?.data;
+  } catch (error) {
+    return Promise.reject(error);
+  }
+};
+
+export const promoteUser = async (userId) => {
+  try {
+    const response = await api.patch(`/user/promote/${userId}`);
+    return response?.data;
+  } catch (error) {
+    return Promise.reject(error);
+  }
+};
+
+export const demoteAdmin = async (userId) => {
+  try {
+    const response = await api.patch(`/user/demote/${userId}`);
+    return response?.data;
+  } catch (error) {
+    return Promise.reject(error);
+  }
+};

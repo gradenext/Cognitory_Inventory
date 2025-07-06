@@ -29,14 +29,25 @@ if (!JWT_SECRET) throw new Error("JWT_SECRET is not set in environment");
 
 export const getAllUser = async (req, res) => {
   try {
-    const users = await User.find({}, "-password -__v")
-      .populate("approvedBy", "name _id")
-      .exec();
+    let params = {};
+
+    if (req.user.role !== "super") {
+      params.role = { $ne: "super" };
+    }
+
+    const result = await User.find(params, "-password -__v -slug")
+      .populate("approvedBy", "name _id role email image")
+      .lean()
+
+    const finalUsers = result.map((user) => ({
+      ...user,
+      questionCount: user?.questions?.length || 0,
+    }));
 
     return res.json({
       success: true,
       message: "All users fetched successfully",
-      users,
+      users: finalUsers,
     });
   } catch (err) {
     console.error("Fetch all users Error:", err);
