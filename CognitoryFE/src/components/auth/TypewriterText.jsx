@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 const TypewriterText = () => {
   const [text, setText] = useState("");
   const [dir, setDir] = useState(1); // 1 = typing, -1 = deleting
-  const baseText = "cognitory...";
+  const baseText = "cognitory";
   const speed = 150;
 
   useEffect(() => {
@@ -30,7 +30,7 @@ const TypewriterText = () => {
     return () => clearInterval(interval);
   }, [dir]);
 
-  return <span className="blur-xs sm:blur-sm">{text}</span>;
+  return <span className="">{text}</span>;
 };
 
 export default TypewriterText

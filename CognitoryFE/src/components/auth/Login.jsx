@@ -93,13 +93,13 @@ const Login = () => {
             name="password"
             value={form.password}
             onChange={handleChange}
-            placeholder="••••••••"
+            placeholder="********"
             type={showPassword ? "text" : "password"}
             error={errors.password}
             disabled={loading}
           />
           <span
-            className="hover:underline cursor-pointer absolute top-2/3 -translate-y-7/8 right-4 text-xs select-none"
+            className="hover:underline text-black font-semibold cursor-pointer absolute top-1/3 translate-y-4/5 right-4 text-xs select-none"
             onClick={() => setShowPassword((prev) => !prev)}
           >
             {showPassword ? "hide" : "show"}
@@ -109,7 +109,7 @@ const Login = () => {
         <button
           type="submit"
           disabled={loading}
-          className="my-2 bg-white text-black py-2 px-4 rounded-lg font-medium hover:bg-white/90 transition"
+          className="my-2 bg-white text-black hover:text-white hover:bg-black py-2 px-4 rounded-lg font-medium transition duration-200 cursor-pointer"
         >
           {loading ? <Loader2 className="animate-spin mx-auto" /> : "Log In"}
         </button>
@@ -121,7 +121,7 @@ const Login = () => {
           Forgot Password
         </Link>
 
-        <div className="text-sm text-white/60 text-center flex justify-center items-center">
+        <div className="text-sm text-white/60 text-center flex flex-col justify-center items-center">
           <div>Don't have an account?</div>
           <Link to={"/signup"} className="underline hover:text-white">
             Sign up

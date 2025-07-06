@@ -107,13 +107,13 @@ const Signup = () => {
             name="password"
             value={form.password}
             onChange={handleChange}
-            placeholder="Create password"
+            placeholder="********"
             type={showPassword ? "text" : "password"}
             error={errors.password}
             disabled={loading}
           />
           <span
-            className="hover:underline cursor-pointer absolute top-2/3 -translate-y-7/8 right-4 text-xs select-none"
+            className="hover:underline text-black font-semibold cursor-pointer absolute top-1/3 translate-y-4/5 right-4 text-xs select-none"
             onClick={() => setShowPassword((prev) => !prev)}
           >
             {showPassword ? "hide" : "show"}
@@ -126,23 +126,23 @@ const Signup = () => {
             name="confirmPassword"
             value={form.confirmPassword}
             onChange={handleChange}
-            placeholder="Re-enter password"
+            placeholder="********"
             type={showConfirmPassword ? "text" : "password"}
             error={errors.confirmPassword}
             disabled={loading}
           />
           <span
-            className="hover:underline cursor-pointer absolute top-2/3 -translate-y-7/8 right-4 text-xs select-none"
+            className="hover:underline text-black font-semibold cursor-pointer absolute top-1/3 translate-y-4/5 right-4 text-xs select-none"
             onClick={() => setShowConfirmPassword((prev) => !prev)}
           >
-            {showPassword ? "hide" : "show"}
+            {showConfirmPassword ? "hide" : "show"}
           </span>
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className=" bg-white text-black py-2 px-4 my-2 rounded-lg font-medium hover:bg-white/90 transition"
+          className=" bg-white text-black hover:text-white hover:bg-black py-2 px-4 my-2 rounded-lg font-medium transition duration-200 cursor-pointer"
         >
           {loading ? (
             <Loader2 className="animate-spin mx-auto" />
@@ -151,12 +151,12 @@ const Signup = () => {
           )}
         </button>
 
-        <p className="text-sm text-white/60 text-center">
-          Already have an account?{" "}
+        <div className="text-sm text-white/60 text-center flex flex-col justify-center items-center">
+          <div>Already have an account?</div>
           <Link to="/login" className="underline hover:text-white">
             Log in
           </Link>
-        </p>
+        </div>
       </form>
     </div>
   );

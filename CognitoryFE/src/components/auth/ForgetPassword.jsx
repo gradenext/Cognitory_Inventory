@@ -80,7 +80,7 @@ const ForgetPassword = () => {
 
         <button
           type="submit"
-          className="my-2 bg-white text-black py-2 px-4 rounded-lg font-medium hover:bg-white/90 transition"
+          className="my-2 bg-white text-black hover:text-white hover:bg-black py-2 px-4 rounded-lg font-medium transition duration-200 cursor-pointer"
         >
           {loading ? <Loader2 className="animate-spin mx-auto" /> : "Submit"}
         </button>
