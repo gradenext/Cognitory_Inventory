@@ -62,25 +62,26 @@ export const reviewQuestion = async (req, res) => {
     const review = await session.withTransaction(async () => {
       await verifyModelReferences(refsToCheck, session);
 
-      const updatedReview = await Review.findOneAndUpdate(
-        { question: questionId },
-        {
-          $set: {
-            approved,
-            comment,
-            rating,
-            approvedAt: new Date(),
-            approvedBy: reviewerId,
-          },
-        },
-        {
-          new: true,
-          upsert: true,
-          session,
-        }
-      );
+      const existingReview = await Review.findOne({
+        question: questionId,
+      }).session(session);
+      if (!existingReview) {
+        return handleError(res, {}, "Review not found for this question", 404);
+      }
 
-      return updatedReview;
+      if (existingReview?.approvedAt) {
+        return handleError(res, {}, "A question can't be reviewed again use update", 404);
+      }
+
+      existingReview.approved = approved;
+      existingReview.comment = comment;
+      existingReview.rating = rating;
+      existingReview.approvedAt = new Date();
+      existingReview.approvedBy = reviewerId;
+
+      await existingReview.save({ session });
+
+      return existingReview;
     });
 
     const populatedReview = await Review.findById(review._id, "-__v")
@@ -99,6 +100,10 @@ export const reviewQuestion = async (req, res) => {
     if (err.message?.includes("not found")) {
       return handleError(res, {}, err.message, 404);
     }
+    if (err.message?.includes("reviewed again")) {
+      return handleError(res, {}, err.message, 404);
+    }
+
     return handleError(res, err, "Failed to review question", 500);
   } finally {
     await session.endSession();

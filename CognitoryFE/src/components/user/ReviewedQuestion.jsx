@@ -13,7 +13,9 @@ const ReviewedQuestion = () => {
     <div className="w-full px-6 py-8 space-y-6">
       {/* Heading Always Shown */}
       <div className="flex items-center justify-between border-b border-white/20 pb-4">
-        <h2 className="text-2xl font-semibold text-white">Created Questions</h2>
+        <h2 className="text-2xl font-semibold text-white">
+          Reviewed Questions
+        </h2>
         <span className="text-sm text-white/60">Total: {total}</span>
       </div>
 

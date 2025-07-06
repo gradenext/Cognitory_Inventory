@@ -106,7 +106,7 @@ export const createQuestion = async (req, res) => {
         { session }
       );
 
-      const [review] = await Review.create([{ questionId: question._id }], {
+      const [review] = await Review.create([{ question: question._id }], {
         session,
       });
 
@@ -159,6 +159,7 @@ export const getAllQuestions = async (req, res) => {
       paginate = "false",
       filterDeleted = "false",
       approved,
+      sort = "createdAt:desc",
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -207,10 +208,6 @@ export const getAllQuestions = async (req, res) => {
       params.deletedAt = null;
     }
 
-    if (approved === "true") {
-      params.approved = approved;
-    }
-
     const invalidIds = isValidMongoId(refsToCheck);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
@@ -218,39 +215,47 @@ export const getAllQuestions = async (req, res) => {
 
     await verifyModelReferences(refsToCheck);
 
-    const query = Question.find(params, "-__v").populate([
-      { path: "enterprise", select: "_id name" },
-      { path: "class", select: "_id name" },
-      { path: "subject", select: "_id name" },
-      { path: "topic", select: "_id name" },
-      { path: "subtopic", select: "_id name" },
-      { path: "level", select: "_id name" },
-      { path: "creator", select: "_id name" },
-      { path: "review", select: "-__v" },
-      {
-        path: "review",
-        select: "-__v",
-        match:
-          approved === "true"
-            ? { approved: true }
-            : approved === "false"
-            ? { approved: false }
-            : {},
-      },
-    ]);
+    // Parse sort
+    const [sortField, sortDirectionRaw] = sort.split(":");
+    const sortOrder = sortDirectionRaw === "asc" ? 1 : -1;
+    const sortOption = { [sortField || "createdAt"]: sortOrder };
 
-    if (approved === "true" || approved === "false") {
-      query.where("review").ne(null);
+    // Fetch all questions first
+    let questions = await Question.find(params, "-__v")
+      .sort(sortOption)
+      .populate([
+        { path: "enterprise", select: "_id name" },
+        { path: "class", select: "_id name" },
+        { path: "subject", select: "_id name" },
+        { path: "topic", select: "_id name" },
+        { path: "subtopic", select: "_id name" },
+        { path: "level", select: "_id name" },
+        { path: "creator", select: "_id name" },
+        {
+          path: "review",
+          select: "-__v",
+          populate: { path: "approvedBy", select: "_id name" },
+        },
+      ])
+      .exec();
+
+    // Filter by review.approved AFTER population
+    if (approved === "true") {
+      questions = questions.filter(
+        (q) => q.review && q.review.approvedAt !== null
+      );
+    } else if (approved === "false") {
+      questions = questions.filter(
+        (q) => !q.review || q.review.approvedAt === null
+      );
     }
 
+    const total = questions.length;
+
+    // Apply pagination
     if (shouldPaginate) {
-      query.skip(skip).limit(Number(limit));
+      questions = questions.slice(skip, skip + Number(limit));
     }
-
-    const [questions, totalCount] = await Promise.all([
-      query.exec(),
-      Question.countDocuments(params),
-    ]);
 
     return handleSuccess(
       res,
@@ -258,9 +263,9 @@ export const getAllQuestions = async (req, res) => {
         ...(shouldPaginate && {
           page: Number(page),
           limit: Number(limit),
-          totalPages: Math.ceil(totalCount / Number(limit)),
+          totalPages: Math.ceil(total / Number(limit)),
         }),
-        total: totalCount,
+        total,
         questions,
       },
       "Questions fetched successfully",
@@ -268,7 +273,6 @@ export const getAllQuestions = async (req, res) => {
     );
   } catch (err) {
     console.error("Fetch questions error:", err);
-
     if (err.message?.includes("not found")) {
       return handleError(res, {}, err.message, 404);
     }
