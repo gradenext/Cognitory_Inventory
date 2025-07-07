@@ -154,12 +154,13 @@ export const getAllQuestions = async (req, res) => {
       topicId,
       subtopicId,
       levelId,
+      reviewed,
+      approved,
+      filterDeleted = "false",
+      sort = "createdAt:desc",
       page = 1,
       limit = 10,
       paginate = "false",
-      filterDeleted = "false",
-      approved,
-      sort = "createdAt:desc",
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -234,19 +235,33 @@ export const getAllQuestions = async (req, res) => {
         {
           path: "review",
           select: "-__v",
-          populate: { path: "approvedBy", select: "_id name" },
+          populate: { path: "reviewedBy", select: "_id name" },
         },
       ])
       .exec();
 
-    // Filter by review.approved AFTER population
+    // Filter by review.reviewedAt AFTER population
+    if (reviewed === "true") {
+      questions = questions.filter(
+        (q) => q.review && q.review.reviewedAt !== null
+      );
+    } else if (reviewed === "false") {
+      questions = questions.filter(
+        (q) => !q.review || q.review.reviewedAt === null
+      );
+    }
+
     if (approved === "true") {
       questions = questions.filter(
-        (q) => q.review && q.review.approvedAt !== null
+        (q) =>
+          q.review && q.review.reviewedAt !== null && q.review.approved === true
       );
     } else if (approved === "false") {
       questions = questions.filter(
-        (q) => !q.review || q.review.approvedAt === null
+        (q) =>
+          !q.review ||
+          q.review.reviewedAt === null ||
+          q.review.approved === false
       );
     }
 
@@ -308,5 +323,64 @@ export const getQuestionById = async (req, res) => {
   } catch (err) {
     console.error(err);
     return handleError(res, err, "Failed to fetch class", 500);
+  }
+};
+
+export const getOneUnreviewedQuestion = async (req, res) => {
+  try {
+    const { enterpriseId } = req.query;
+
+    let filter = {
+      deletedAt: null,
+      $or: [{ review: null }, { "review.reviewedAt": null }],
+    };
+
+    if (enterpriseId) {
+      const invalidIds = isValidMongoId([
+        { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
+      ]);
+      if (invalidIds.length > 0) {
+        return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+      }
+
+      const enterpriseExists = await Enterprise.exists({ _id: enterpriseId });
+      if (!enterpriseExists) {
+        return handleError(res, {}, "Enterprise not found", 404);
+      }
+
+      filter.enterprise = enterpriseId;
+    }
+
+    const question = await Question.findOne(filter, "-__v")
+      .populate([
+        { path: "enterprise", select: "_id name" },
+        { path: "class", select: "_id name" },
+        { path: "subject", select: "_id name" },
+        { path: "topic", select: "_id name" },
+        { path: "subtopic", select: "_id name" },
+        { path: "level", select: "_id name" },
+        { path: "creator", select: "_id name" },
+        {
+          path: "review",
+          select: "-__v",
+          populate: { path: "reviewedBy", select: "_id name" },
+        },
+      ])
+      .sort({ createdAt: 1 })
+      .exec();
+
+    if (!question) {
+      return handleError(res, {}, "No unreviewed question found", 404);
+    }
+
+    return handleSuccess(
+      res,
+      { question },
+      "Unreviewed question fetched successfully",
+      200
+    );
+  } catch (err) {
+    console.error("Fetch unreviewed question error:", err);
+    return handleError(res, err, "Failed to fetch unreviewed question", 500);
   }
 };

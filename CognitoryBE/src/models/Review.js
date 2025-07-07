@@ -2,15 +2,19 @@ import mongoose from "mongoose";
 
 const approvalSchema = new mongoose.Schema(
   {
-    approved: {
+    editAllowed: {
       type: Boolean,
       default: false,
     },
-    approvedAt: {
+    reviewed: {
+      type: Boolean,
+      default: false,
+    },
+    reviewedAt: {
       type: Date,
       default: null,
     },
-    approvedBy: {
+    reviewedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },

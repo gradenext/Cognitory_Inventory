@@ -1,2 +1,65 @@
 1 - sort order to get apis
 2 - create super admin with all data and priveleges
+3 - update review
+4 - allow edit question
+5 - updated question if rejected and allowedEdit
+
+
+User -
+    User profile
+        - user data
+        - questions created so far
+        - question reviewed so far
+        - question unreviewed
+        - avg rating
+        - approved status, date, By
+        - curriculum wise question count
+        - curriculum wise avg rating
+    Add question
+    Created question
+        - question created but not reviewed
+        - advanced filtering
+    Reviewed question
+        - question reviewed and avg rating
+        - advanced filtering
+        - update question, if rejected and edit allowed.
+
+
+Admin -
+    User Profile
+        - user data
+        - total questions reviewed count
+    Users
+        - view all users except super
+        - avg rating of each user.
+        - approve/unapprove user
+        - promote/demote user
+    Questions
+        - Questions created so far(no filter).
+        - Questions created by user.
+        - reviewed questions.
+        - Update review
+        - Approved/Unapproved.
+        - total questions created meta data based on curriculum.
+        - advanced filtering
+    Reviews
+        - review one question at a time.
+    Curriculum
+        - view currilculum
+        - Add
+        - update
+        - soft delete
+
+
+Super Admin
+    User profile
+        - user data
+
+    Users
+        - assign enterprise
+        - wildcard eneterprise
+        - associated enterprise.
+        - wildcard enterprise admin.
+
+
+

@@ -21,7 +21,7 @@ const Admin = () => {
     },
     {
       label: "Curriculum",
-      path: "curriculum/686961aee7955f838157b93e",
+      path: "curriculum/686c0f61bdef71578095043f",
     },
   ];
 
