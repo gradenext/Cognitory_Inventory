@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronUp, Star } from "lucide-react";
 
-const Chip = ({ label, color = "bg-white/20" }) => (
+const Chip = ({ label, color }) => (
   <span
-    className={`px-2 py-1 rounded-full text-xs ${color} text-white font-medium`}
+    className={`px-3 py-1 rounded-full text-xs backdrop-blur-md ${color} text-white font-medium shadow`}
   >
     {label}
   </span>
@@ -14,7 +14,7 @@ const Stars = ({ rating = 0 }) => (
     {[...Array(5)].map((_, i) => (
       <Star
         key={i}
-        size={14}
+        size={16}
         className={
           i < rating ? "text-yellow-400 fill-yellow-400" : "text-white/20"
         }
@@ -23,19 +23,22 @@ const Stars = ({ rating = 0 }) => (
   </div>
 );
 
-const QuestionCard = ({ question }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const contentRef = useRef(null);
+const Section = ({ title, children }) => (
+  <div className="gap-x-2 flex items-center">
+    <h4 className="text-sm font-semibold text-white/70">{title}:</h4>
+    <div className="text-sm text-white break-words">{children}</div>
+  </div>
+);
 
-  const toggleOpen = () => setIsOpen(!isOpen);
+const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
+  const [isOpen, setIsOpen] = useState(shouldOpen);
 
-  useEffect(() => {
-    if (isOpen && contentRef.current) {
-      contentRef.current.style.height = `${contentRef.current.scrollHeight}px`;
-    } else if (contentRef.current) {
-      contentRef.current.style.height = "0px";
+  const toggleOpen = () => {
+    if (!shouldClose) {
+      return;
     }
-  }, [isOpen]);
+    setIsOpen((prev) => !prev);
+  };
 
   const {
     text,
@@ -59,112 +62,157 @@ const QuestionCard = ({ question }) => {
   } = question;
 
   return (
-    <div className="w-full mx-auto my-4 rounded-2xl backdrop-blur-md bg-white/10 border border-white/20 shadow-xl text-white overflow-hidden transition-all duration-300">
+    <div className="w-full mx-auto my-6 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-lg shadow-lg text-white transition-all overflow-hidden">
+      {/* Accordion Header */}
       <div
-        className="flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-white/5 transition-all"
         onClick={toggleOpen}
+        className="flex items-center justify-between gap-4 p-6 cursor-pointer hover:bg-white/5 transition-all"
       >
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold line-clamp-1">{text}</h3>
-          <div className="flex flex-wrap gap-2 text-xs text-white/70">
-            <Chip label={`Class: ${classObj.name}`} />
-            <Chip label={`Subject: ${subject.name}`} />
-            <Chip label={`Topic: ${topic.name}`} />
-            <Chip label={`Subtopic: ${subtopic.name}`} />
-            <Chip label={`Level: ${level.name}`} />
+        <div className="flex-1 space-y-2 overflow-hidden">
+          <div className="flex flex-wrap gap-2">
+            {enterprise?.name && <Chip label={`${enterprise.name}`} />}
+            {classObj?.name && (
+              <Chip label={`${classObj.name}`} color="bg-indigo-500/20" />
+            )}
+            {subject?.name && (
+              <Chip label={`${subject.name}`} color="bg-blue-500/20" />
+            )}
+            {topic?.name && (
+              <Chip label={`${topic.name}`} color="bg-purple-500/20" />
+            )}
+            {subtopic?.name && (
+              <Chip label={`${subtopic.name}`} color="bg-pink-500/20" />
+            )}
+            {level?.name && (
+              <Chip
+                label={`Level: ${level.rank}-${level.name}`}
+                color="bg-teal-500/20"
+              />
+            )}
+            <Chip
+              label={review?.reviewedAt ? "Reviewed" : "Not Reviewed"}
+              color={review?.reviewedAt ? "bg-green-500/20" : "bg-red-500/20"}
+            />
           </div>
+
+          <h3
+            className={`text-base font-semibold leading-snug text-white/90 transition-all duration-300 ease-in-out ${
+              isOpen
+                ? "opacity-0 h-0 pointer-events-none"
+                : "opacity-100 h-auto line-clamp-2"
+            }`}
+          >
+            {text}
+          </h3>
         </div>
-        <div className="flex items-center gap-2">
-          {review?.approved ? (
-            <Chip label="Reviewed" color="bg-green-500/40" />
-          ) : (
-            <Chip label="Not Reviewed" color="bg-red-500/40" />
-          )}
-          {isOpen ? <ChevronUp /> : <ChevronDown />}
-        </div>
+
+        {shouldClose && (
+          <ChevronDown
+            size={20}
+            className={`transform transition-transform duration-100 ${
+              isOpen ? "rotate-180" : "rotate-0"
+            }`}
+          />
+        )}
       </div>
 
+      {/* Accordion Body */}
       <div
-        ref={contentRef}
-        className="transition-[height] duration-300 ease-in-out overflow-hidden border-t border-white/20"
-        style={{ height: 0 }}
+        className={`transition-all duration-300 ease-in-out overflow-hidden border-t border-white/10 ${
+          isOpen ? "max-h-screen" : "max-h-0"
+        }`}
       >
-        <div className="px-6 py-4 space-y-4">
-          {image?.files?.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {image.files.map((url, i) => (
-                <img
-                  key={i}
-                  src={url}
-                  alt="uploaded"
-                  className="h-32 rounded-lg border border-white/30"
-                />
-              ))}
+        <div className="p-6 space-y-2 text-sm flex flex-col ">
+          {/* Info Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <Section title="Question Type">{type}</Section>
+              <Section title="Text Type">{textType || "text"}</Section>
             </div>
+            <div className="space-y-3">
+              <Section title="Reviewer Comment">
+                {review.comment || "None"}
+              </Section>
+              <Section title="Rating">
+                <Stars rating={review?.rating || 0} />
+              </Section>
+            </div>
+          </div>
+
+          {/* Images Carousel */}
+          <div className="flex flex-col justify-center items-center">
+            {image?.files?.length > 0 && (
+              <>
+                <div className="overflow-x-auto flex gap-4 pb-2">
+                  {image.files.map((url, i) => (
+                    <img
+                      key={i}
+                      src={url}
+                      alt={`img-${i}`}
+                      className="h-36 rounded-lg border border-white/30 object-contain shadow min-w-[9rem]"
+                    />
+                  ))}
+                </div>
+                {image.uuid && (
+                  <Section title="Image UUID">
+                    <span className="text-white/80 break-all">
+                      {image.uuid}
+                    </span>
+                  </Section>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Content: Question, Answer, Hint, Explanation */}
+          <div className="space-y-4">
+            <Section title="Question">{text}</Section>
+            {answer && <Section title="Answer">{answer}</Section>}
+            {hint && <Section title="Hint">{hint}</Section>}
+            {explanation && (
+              <Section title="Explanation">{explanation}</Section>
+            )}
+          </div>
+
+          {/* Multiple Options */}
+          {type === "multiple" && options?.filter(Boolean)?.length > 0 && (
+            <Section title="Options">
+              <ul className="list-disc list-inside pl-4 space-y-1">
+                {options.map(
+                  (opt, idx) =>
+                    opt && (
+                      <li key={idx}>
+                        <strong>Option {idx + 1}:</strong>{" "}
+                        <span className="break-words">{opt}</span>
+                      </li>
+                    )
+                )}
+              </ul>
+            </Section>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-1">
+          {/* Metadata */}
+          <div className="pt-4 border-t border-white/20 text-xs text-white/50 space-y-1">
+            {creator?.name && (
               <p>
-                Text Type: <span className="font-medium">{textType}</span>
+                <strong>Creator:</strong> {creator.name}
               </p>
+            )}
+            {creator?.email && (
               <p>
-                Question Type: <span className="font-medium">{type}</span>
+                <strong>Creator:</strong> {creator.email}
               </p>
-              {type === "multiple" && (
-                <ul className="list-disc list-inside space-y-1">
-                  {options.map((opt, idx) => (
-                    <li key={idx}>
-                      <strong>Option {idx + 1}:</strong> {opt}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="space-y-1">
+            )}
+            {createdAt && (
               <p>
-                <strong>Answer:</strong> {answer}
+                <strong>Created:</strong> {new Date(createdAt).toLocaleString()}
               </p>
+            )}
+            {updatedAt && (
               <p>
-                <strong>Hint:</strong> {hint}
+                <strong>Updated:</strong> {new Date(updatedAt).toLocaleString()}
               </p>
-              <p>
-                <strong>Explanation:</strong> {explanation}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-1">
-              <p>
-                <strong>Creator:</strong> {creator?.name}
-              </p>
-              <p>
-                <strong>Enterprise:</strong> {enterprise?.name}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p>
-                <strong>Review Status:</strong>{" "}
-                {review?.approved ? "Approved" : "Not Approved"}
-              </p>
-              {review?.comment && (
-                <p>
-                  <strong>Comment:</strong> {review.comment}
-                </p>
-              )}
-              <div>
-                <p className="mb-1">
-                  <strong>Rating:</strong>
-                </p>
-                <Stars rating={review?.rating} />
-              </div>
-            </div>
-          </div>
-
-          <div className="text-xs text-white/50">
-            <p>Created At: {new Date(createdAt).toLocaleString()}</p>
-            <p>Updated At: {new Date(updatedAt).toLocaleString()}</p>
+            )}
           </div>
         </div>
       </div>

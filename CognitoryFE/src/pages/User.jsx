@@ -9,7 +9,7 @@ const User = () => {
     },
     {
       label: "Add Question",
-      path: "question/add/686c0f61bdef71578095043f",
+      path: `question/add/${import.meta.env.VITE_ENTERPRISE_ID}`,
     },
     {
       label: "Created Questions",

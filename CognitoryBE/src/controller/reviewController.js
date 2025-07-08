@@ -12,6 +12,7 @@ const reviewSchema = z
   .object({
     questionId: z.string(),
     approved: z.boolean(),
+    editAllowed: z.boolean(),
     comment: z.string().optional(),
     rating: z.number().min(0).max(5).optional(),
   })
@@ -33,12 +34,13 @@ export const reviewQuestion = async (req, res) => {
 
   try {
     const { questionId } = req.params;
-    const { approved, comment, rating } = req.body;
+    const { approved, comment, rating, editAllowed } = req.body;
     const validationResult = validateWithZod(reviewSchema, {
       questionId,
       approved,
       comment,
       rating,
+      editAllowed,
     });
     if (!validationResult.success) {
       return handleError(
@@ -70,14 +72,20 @@ export const reviewQuestion = async (req, res) => {
       }
 
       if (existingReview?.approvedAt) {
-        return handleError(res, {}, "A question can't be reviewed again use update", 404);
+        return handleError(
+          res,
+          {},
+          "A question can't be reviewed again use update",
+          404
+        );
       }
 
       existingReview.approved = approved;
+      existingReview.editAllowed = editAllowed;
       existingReview.comment = comment;
       existingReview.rating = rating;
-      existingReview.approvedAt = new Date();
-      existingReview.approvedBy = reviewerId;
+      existingReview.reviewedAt = new Date();
+      existingReview.reviewedBy = reviewerId;
 
       await existingReview.save({ session });
 
@@ -85,7 +93,7 @@ export const reviewQuestion = async (req, res) => {
     });
 
     const populatedReview = await Review.findById(review._id, "-__v")
-      .populate("approvedBy", "name _id")
+      .populate("reviewedBy", "name _id")
       .exec();
 
     return handleSuccess(

@@ -230,7 +230,7 @@ export const getAllQuestions = async (req, res) => {
         { path: "subject", select: "_id name" },
         { path: "topic", select: "_id name" },
         { path: "subtopic", select: "_id name" },
-        { path: "level", select: "_id name" },
+        { path: "level", select: "_id name rank" },
         { path: "creator", select: "_id name" },
         {
           path: "review",

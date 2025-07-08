@@ -88,7 +88,7 @@ const Add = ({ type }) => {
   };
 
   const onSubmit = async () => {
-    if (role !== "super") {
+    if (role !== "super" && type === "enterprise") {
       toast.error("Reserver for super admin");
       setOpen(false);
       return;
@@ -114,7 +114,8 @@ const Add = ({ type }) => {
         topicId,
         subtopicId,
       };
-      if (type === "level") payload.rank = rank?.value;
+      if (type === "level") payload.rank = rank;
+      if (type === "enterprise") payload.email = email;
 
       const createEntity = createFunction(type);
 
@@ -131,7 +132,6 @@ const Add = ({ type }) => {
       setName("");
       setRank(null);
     } catch (err) {
-      console.log(err);
       const msg = err?.response?.data?.message || "Something went wrong";
       toast.error(msg);
     } finally {
@@ -178,7 +178,7 @@ const Add = ({ type }) => {
                 label="Rank"
                 options={rankOptions}
                 selectedOption={rank}
-                onSelect={setRank}
+                onSelect={(value) => setRank(value)}
                 placeholder="Select rank"
                 error={errors.rank}
                 disabled={loading}

@@ -18,6 +18,7 @@ export const useQueryObject = ({
   topicId = null,
   subtopicId = null,
   approved,
+  reviewed,
 }) => {
   const role = useSelector((state) => state?.user?.user?.role);
   const { pathname } = useLocation();
@@ -62,11 +63,15 @@ export const useQueryObject = ({
 
   const shouldFetchQuestions =
     token &&
-    ["/user/question/reviewed", "/user/question/created"].includes(pathname);
+    [
+      "/user/question/reviewed",
+      "/user/question/created",
+      "/admin/question/all",
+    ].includes(pathname);
 
   const questions = useQuery({
-    queryKey: ["questions", approved],
-    queryFn: () => getAllQuestion(approved),
+    queryKey: ["questions", approved, reviewed],
+    queryFn: () => getAllQuestion(approved, reviewed),
     enabled: shouldFetchQuestions,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchInterval: 10 * 60 * 1000, // 10 minutes

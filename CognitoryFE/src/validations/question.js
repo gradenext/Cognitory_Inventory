@@ -47,3 +47,26 @@ export const addQuestionSchema = z
       }
     }
   });
+
+export const reviewSchema = z
+  .object({
+    approved: z.boolean(),
+    editAllowed: z.boolean(),
+    comment: z.string().optional(),
+    rating: z.preprocess(
+      (val) => (val === "" ? undefined : Number(val)),
+      z.number().min(0).max(5).optional()
+    ),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.approved === false &&
+      (!data.comment || data.comment.trim() === "")
+    ) {
+      ctx.addIssue({
+        path: ["comment"],
+        code: z.ZodIssueCode.custom,
+        message: "Comment is required when approved is false.",
+      });
+    }
+  });

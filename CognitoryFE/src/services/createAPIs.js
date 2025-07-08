@@ -1,23 +1,22 @@
 import toast from "react-hot-toast";
 import { api } from "./api";
-import { v4 as uuidv4 } from "uuid";
 
 export const upload = async (filesArray) => {
   try {
-    const uuid = uuidv4();
     const formData = new FormData();
 
     filesArray.forEach((file) => {
-      formData.append("file", file); // use same key for multiple files
+      formData.append("images", file);
     });
 
-    formData.append("uuid", uuid);
-
-    const response = await api.post("/util/upload", formData);
-    return response?.data?.data;
+    const response = await api.post(
+      "https://api.gradenext.com/api/upload-images/",
+      formData
+    );
+    return response?.data;
   } catch (error) {
     console.error("Upload error:", error);
-    toast.error(error.response?.data?.message);
+    throw error;
   }
 };
 
@@ -27,7 +26,17 @@ export const createQuestion = async (data) => {
     return response?.data;
   } catch (error) {
     console.error("Upload error:", error);
-    toast.error(error.response?.data?.message);
+    throw error;
+  }
+};
+
+export const reviewQuestion = async (questionId, data) => {
+  try {
+    const response = await api.post(`/review/${questionId}`, data);
+    return response?.data;
+  } catch (error) {
+    console.error("Upload error:", error);
+    throw error;
   }
 };
 
@@ -38,6 +47,7 @@ export const createEnterprise = async (data) => {
   } catch (error) {
     console.error("Upload error:", error);
     toast.error(error.response?.data?.message);
+    throw error;
   }
 };
 
@@ -48,6 +58,7 @@ export const createClass = async (data) => {
   } catch (error) {
     console.error("Upload error:", error);
     toast.error(error.response?.data?.message);
+    throw error;
   }
 };
 
@@ -58,6 +69,7 @@ export const createSubject = async (data) => {
   } catch (error) {
     console.error("Upload error:", error);
     toast.error(error.response?.data?.message);
+    throw error;
   }
 };
 
@@ -68,6 +80,7 @@ export const createTopic = async (data) => {
   } catch (error) {
     console.error("Upload error:", error);
     toast.error(error.response?.data?.message);
+    throw error;
   }
 };
 
@@ -78,6 +91,7 @@ export const createSubtopic = async (data) => {
   } catch (error) {
     console.error("Upload error:", error);
     toast.error(error.response?.data?.message);
+    throw error;
   }
 };
 
@@ -88,5 +102,6 @@ export const createLevel = async (data) => {
   } catch (error) {
     console.error("Upload error:", error);
     toast.error(error.response?.data?.message);
+    throw error;
   }
 };

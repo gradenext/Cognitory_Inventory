@@ -21,17 +21,22 @@ const Admin = () => {
     },
     {
       label: "Curriculum",
-      path: "curriculum/686c0f61bdef71578095043f",
+      path: `curriculum/${import.meta.env.VITE_ENTERPRISE_ID}`,
     },
   ];
 
   return (
-    <div className="flex mt-16 h-full">
-      <div className="w-60">
+    <div className="flex pt-16">
+      {/* Sidebar */}
+      <div className="w-60 fixed top-16 left-0 my-2 z-40 h-[calc(100vh-4rem)]">
         <Sidebar tabs={tabs} />
       </div>
-      <div className="w-full m-1 bg-white/10 backdrop-blur-3xl flex justify-center rounded-2xl overflow-y-auto  ">
-        <Outlet />
+
+      {/* Main Content */}
+      <div className="ml-60 w-[calc(100vw-15rem)] min-h-[calc(100vh-4rem)] p-2">
+        <div className="bg-white/10 h-full backdrop-blur-3xl rounded-2xl shadow-md">
+          <Outlet />
+        </div>
       </div>
     </div>
   );

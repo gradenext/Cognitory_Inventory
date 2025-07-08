@@ -6,7 +6,7 @@ const approvalSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    reviewed: {
+    approved: {
       type: Boolean,
       default: false,
     },

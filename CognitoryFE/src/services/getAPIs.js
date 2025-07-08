@@ -102,11 +102,16 @@ export const getAllUsers = async () => {
   }
 };
 
-export const getAllQuestion = async (approved) => {
+export const getAllQuestion = async (approved, reviewed) => {
   try {
-    const response = await api.get(
-      `/question?filterDeleted=true&approved=${approved}`
-    );
+    let query = "";
+    if (approved) {
+      query = query + `approved=${approved}`;
+    }
+    if (reviewed) {
+      query = query + `reviewed=${reviewed}`;
+    }
+    const response = await api.get(`/question?filterDeleted=true&${query}`);
     return response?.data;
   } catch (error) {
     console.log(error);
@@ -115,13 +120,17 @@ export const getAllQuestion = async (approved) => {
   }
 };
 
-export const getQuestionById = async (questionId) => {
+export const getSingleQuestionForReview = async () => {
   try {
-    const response = await api.get(`/question/${questionId}`);
-    return response?.data?.questions;
+    const response = await api.get(
+      `/question/unreviewed/single?enterpriseId=${
+        import.meta.env.VITE_ENTERPRISE_ID
+      }`
+    );
+    return response?.data?.data;
   } catch (error) {
     console.log(error);
     toast.error(error.response?.data?.message);
-    return [];
+    throw error;
   }
 };

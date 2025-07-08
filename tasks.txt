@@ -1,28 +1,30 @@
-1 - sort order to get apis
+1 - sort order in get apis
 2 - create super admin with all data and priveleges
 3 - update review
-4 - allow edit question
 5 - updated question if rejected and allowedEdit
+6 - assign enterprise and wildcard enterprise.
 
 
 User -
     User profile
         - user data
-        - questions created so far
-        - question reviewed so far
-        - question unreviewed
+        - questions created so far count
+        - question reviewed so far count
+        - question unreviewed count
         - avg rating
-        - approved status, date, By
         - curriculum wise question count
         - curriculum wise avg rating
     Add question
+        - A form to create questions ----
     Created question
-        - question created but not reviewed
+        - question created but not reviewed ----
         - advanced filtering
     Reviewed question
-        - question reviewed and avg rating
+        - question reviewed ----
+        - avg rating
         - advanced filtering
         - update question, if rejected and edit allowed.
+        - approved status, date, By
 
 
 Admin -
@@ -30,23 +32,25 @@ Admin -
         - user data
         - total questions reviewed count
     Users
-        - view all users except super
+        - view all users except super ----
         - avg rating of each user.
-        - approve/unapprove user
-        - promote/demote user
+        - approve/unapprove user ----
+        - promote/demote user ----
     Questions
-        - Questions created so far(no filter).
-        - Questions created by user.
+        - Questions created so far(no filter). ----
+        - Questions created by userId.
         - reviewed questions.
         - Update review
+        - Allow edit
         - Approved/Unapproved.
         - total questions created meta data based on curriculum.
         - advanced filtering
     Reviews
-        - review one question at a time.
+        - review one question at a time. ----
+        - Allow edit ----
     Curriculum
-        - view currilculum
-        - Add
+        - view currilculum ----
+        - Add ----
         - update
         - soft delete
 

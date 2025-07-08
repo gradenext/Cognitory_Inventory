@@ -109,15 +109,12 @@ const AddQuestion = () => {
       setLoading(true);
       let uploadData = {};
       if (form?.images?.length > 0) {
-        try {
-          uploadData = await upload(form?.images);
-        } catch (error) {
-          throw new Error("Image upload failed, please try again");
-        }
+        uploadData = await upload(form?.images);
       }
 
-      const urls = uploadData?.urls;
-      const imageUUID = uploadData?.uuid;
+      const urls = uploadData?.image_urls || [];
+      const imageUUID = uploadData?.image_id || null;
+
       const response = await createQuestion({
         text: form.text,
         images: urls,
@@ -151,7 +148,9 @@ const AddQuestion = () => {
       }));
     } catch (error) {
       console.log(error);
-      toast.error(error.response?.data?.message || error.message);
+      toast.error(
+        error.response?.data?.message || error.message || "Something went wrong"
+      );
     } finally {
       setLoading(false);
     }
@@ -317,7 +316,7 @@ const AddQuestion = () => {
           />
         </div>
         {/* File Upload */}
-        {/* <div>
+        <div>
           <FileUpload
             onSelect={(imageArray) =>
               setForm((prev) => ({
@@ -328,7 +327,7 @@ const AddQuestion = () => {
             error={error?.images}
             disabled={loading}
           />
-        </div> */}
+        </div>
 
         {/* Input Fields */}
 
