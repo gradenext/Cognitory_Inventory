@@ -13,7 +13,7 @@ export const questionSchema = z
     }),
 
     images: z.array(z.string()).optional(),
-    imageUUID: z.string().optional(),
+    imageUUID: z.string().optional().nullable(),
 
     type: z.enum(["input", "multiple"], {
       errorMap: () => ({

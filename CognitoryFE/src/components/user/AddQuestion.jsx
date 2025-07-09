@@ -76,7 +76,7 @@ const AddQuestion = () => {
 
   const levelList =
     levels?.levels?.map((level) => ({
-      label: level?.name,
+      label: `${level?.name}(${level?.rank})`,
       value: level?._id,
     })) || [];
 
