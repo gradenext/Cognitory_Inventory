@@ -23,6 +23,7 @@ import CreatedQuestion from "./components/user/CreatedQuestion";
 import ReviewedQuestion from "./components/user/ReviewedQuestion";
 import Question from "./components/admin/Question";
 import Review from "./components/admin/Review";
+import UserProfile from "./components/user/UserProfile";
 
 function App() {
   const token = useSelector((state) => state?.user?.token);
@@ -107,7 +108,7 @@ function App() {
         ) : (
           <Route path="/user" element={<User />}>
             <Route index element={<Navigate to="/user/my-profile" replace />} />
-            <Route path="my-profile" element={<MyProfile />} />
+            <Route path="my-profile" element={<UserProfile />} />
             <Route
               path="question/add/:enterpriseId"
               element={<AddQuestion />}

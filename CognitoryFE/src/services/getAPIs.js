@@ -102,6 +102,19 @@ export const getAllUsers = async () => {
   }
 };
 
+export const getUserProfile = async () => {
+  try {
+    const response = await api.get(`/user/profile`);
+    return response?.data?.data;
+  } catch (error) {
+    console.log(error);
+    toast.error(error.response?.data?.message);
+    return [];
+  }
+};
+
+
+
 export const getAllQuestion = async (approved = null, reviewed = null) => {
   try {
     let query = [];

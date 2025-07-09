@@ -187,13 +187,87 @@ export const getClassById = async (req, res) => {
 };
 
 export const updateClass = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
-    const updated = await Class.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+    const { id } = req.params;
+    const { name, enterpriseId } = req.body;
+
+    // Validate ID
+    const refsToCheck = [
+      { model: Class, id, key: "Class ID" },
+      { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
+    ];
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const validationResult = validateWithZod(classSchema, {
+      name,
+      enterpriseId,
     });
-    res.json(updated);
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
+    const updatedClass = await session.withTransaction(async () => {
+      const existingClass = await Class.findById(id).session(session);
+      if (!existingClass) {
+        throw new Error("Class not found");
+      }
+
+      await verifyModelReferences(refsToCheck, session);
+
+      // If enterprise is changing, update enterprise references
+      if (existingClass.enterprise.toString() !== enterpriseId) {
+        await Enterprise.findByIdAndUpdate(
+          existingClass.enterprise,
+          { $pull: { classes: id } },
+          { session }
+        );
+        await Enterprise.findByIdAndUpdate(
+          enterpriseId,
+          { $addToSet: { classes: id } },
+          { session }
+        );
+      }
+
+      // Update the class itself
+      await Class.findByIdAndUpdate(
+        id,
+        { name, enterprise: enterpriseId },
+        { new: true, runValidators: true, session }
+      );
+
+      return await Class.findById(id, "-slug -__v")
+        .populate("enterprise", "name email image classes _id")
+        .session(session);
+    });
+
+    return handleSuccess(res, updatedClass, `Class updated successfully`, 200);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("Update class error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return handleError(
+        res,
+        {},
+        "Another class with this name already exists in the Enterprise",
+        409
+      );
+    }
+    return handleError(res, err, "Failed to update class", 500);
+  } finally {
+    await session.endSession();
   }
 };
 

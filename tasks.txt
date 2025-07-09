@@ -1,10 +1,11 @@
 1 - sort order in get apis
 2 - create super admin with all data and priveleges
 3 - update review
-4 - reviewable field
-5 - editable field
+4 - reviewable field, if question edited then marked true so that question can be reviewed again.
+5 - editable field, allow user to edit the question if rejected ----
 5 - updated question if rejected and allowedEdit
 6 - assign enterprise and wildcard enterprise.
+7 - get entire curriculum api ----
 
 
 User -
@@ -23,10 +24,9 @@ User -
         - advanced filtering
     Reviewed question
         - question reviewed ----
-        - avg rating
         - advanced filtering
         - update question, if rejected and edit allowed.
-        - approved status, date, By
+        - approved status, date ----
 
 
 Admin -
@@ -35,7 +35,7 @@ Admin -
         - total questions reviewed count
     Users
         - view all users except super ----
-        - avg rating of each user.
+        - avg rating of each user. ----
         - approve/unapprove user ----
         - promote/demote user ----
     Questions

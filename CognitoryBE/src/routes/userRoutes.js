@@ -10,6 +10,7 @@ import {
   makeAdmin,
   softDeleteUser,
   demoteAdmin,
+  getUserProfile,
 } from "../controller/userController.js";
 import { authMiddleware, isAdmin, isSuper } from "../middleware/auth.js";
 
@@ -23,6 +24,9 @@ router.post("/login", login);
 
 // Get all users
 router.get("/", authMiddleware, isAdmin, getAllUser);
+
+// Get user role profile
+router.get("/profile", authMiddleware, getUserProfile);
 
 // Toogle Approve
 router.patch("/approve/:userId", authMiddleware, isAdmin, approveUser);

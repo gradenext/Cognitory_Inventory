@@ -140,15 +140,69 @@ export const getEnterpriseById = async (req, res) => {
 };
 
 export const updateEnterprise = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
-    const enterprise = await Enterprise.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
+    const { id } = req.params;
+    const { name, email } = req.body;
+
+    // Validate input
+    const validationResult = validateWithZod(enterpriseSchema, { name, email });
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
+    const refsToCheck = [{ model: Enterprise, id, key: "Enterprise ID" }];
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const updatedEnterprise = await session.withTransaction(async () => {
+      const existing = await Enterprise.findById(id).session(session);
+      if (!existing) {
+        throw new Error("Enterprise not found");
+      }
+
+      await Enterprise.findByIdAndUpdate(
+        id,
+        { name, email },
+        { new: true, runValidators: true, session }
+      );
+
+      return await Enterprise.findById(id).session(session);
+    });
+
+    return handleSuccess(
+      res,
+      updatedEnterprise,
+      "Enterprise updated successfully",
+      200
     );
-    res.json(enterprise);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("Update enterprise error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
+
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return handleError(
+        res,
+        {},
+        "Duplicate Enterprise name, use a different name",
+        409
+      );
+    }
+
+    return handleError(res, err, "Failed to update enterprise", 500);
+  } finally {
+    await session.endSession();
   }
 };
 

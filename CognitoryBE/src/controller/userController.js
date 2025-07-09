@@ -1,4 +1,11 @@
 import User from "../models/User.js";
+import Enterprise from "../models/Enterprise.js";
+import Class from "../models/Class.js";
+import Subject from "../models/Subject.js";
+import Topic from "../models/Topic.js";
+import Subtopic from "../models/Subtopic.js";
+import Level from "../models/Level.js";
+import Question from "../models/Question.js";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
@@ -29,20 +36,79 @@ if (!JWT_SECRET) throw new Error("JWT_SECRET is not set in environment");
 
 export const getAllUser = async (req, res) => {
   try {
-    let params = {};
+    // Exclude super users if requester is not super
+    const filter = req.user.role === "super" ? {} : { role: { $ne: "super" } };
 
-    if (req.user.role !== "super") {
-      params.role = { $ne: "super" };
-    }
-
-    const result = await User.find(params, "-password -__v -slug")
-      .populate("approvedBy", "name _id role email image")
+    const users = await User.find(filter, "-password -__v -slug")
+      .populate("approvedBy", "name")
       .lean();
 
-    const finalUsers = result.map((user) => ({
-      ...user,
-      questionCount: user?.questions?.length || 0,
-    }));
+    // Get IDs of users with role 'user'
+    const userOnly = users.filter((u) => u.role === "user");
+    const userOnlyIds = userOnly.map((u) => u._id);
+
+    // Fetch all questions created by those users
+    const questions = await Question.find({ creator: { $in: userOnlyIds } })
+      .populate("review", "approved reviewedAt rating")
+      .lean();
+
+    // Build analytics map
+    const statsMap = {};
+
+    for (const q of questions) {
+      const userId = q.creator?.toString();
+      if (!userId) continue;
+
+      if (!statsMap[userId]) {
+        statsMap[userId] = {
+          questionCount: 0,
+          reviewedCount: 0,
+          approvedCount: 0,
+          unapprovedCount: 0,
+          totalRating: 0,
+          ratingCount: 0,
+        };
+      }
+
+      const s = statsMap[userId];
+      s.questionCount++;
+
+      if (q.review?.reviewedAt) {
+        s.reviewedCount++;
+        if (q.review.approved === true) {
+          s.approvedCount++;
+        } else {
+          s.unapprovedCount++;
+        }
+
+        if (typeof q.review.rating === "number") {
+          s.totalRating += q.review.rating;
+          s.ratingCount++;
+        }
+      }
+    }
+
+    // Attach analytics only to role "user"
+    const finalUsers = users.map((user) => {
+      if (user.role === "user") {
+        const stat = statsMap[user._id.toString()] || {};
+        const avgRating =
+          stat.ratingCount > 0
+            ? Number((stat.totalRating / stat.ratingCount).toFixed(2))
+            : null;
+
+        return {
+          ...user,
+          questionCount: stat.questionCount || 0,
+          reviewedCount: stat.reviewedCount || 0,
+          approvedCount: stat.approvedCount || 0,
+          unapprovedCount: stat.unapprovedCount || 0,
+          averageRating: avgRating,
+        };
+      }
+
+      return user; // no stats for other roles
+    });
 
     return res.json({
       success: true,
@@ -564,5 +630,208 @@ export const demoteAdmin = async (req, res) => {
     return handleError(res, err, "Failed to demote admin", 500);
   } finally {
     await session.endSession();
+  }
+};
+
+export const getUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await User.findById(userId, "-password -__v -slug")
+      .populate("approvedBy", "name email role")
+      .lean();
+
+    if (!user) return handleError(res, {}, "User not found", 404);
+    if (user.role !== "user")
+      return handleError(res, {}, "Protected route for user only", 403);
+
+    // 1. Load full hierarchy
+    const [enterprises, classes, subjects, topics, subtopics, levels] =
+      await Promise.all([
+        Enterprise.find({ deletedAt: null }, "_id name").lean(),
+        Class.find({ deletedAt: null }, "_id name").lean(),
+        Subject.find({ deletedAt: null }, "_id name class").lean(),
+        Topic.find({ deletedAt: null }, "_id name subject").lean(),
+        Subtopic.find({ deletedAt: null }, "_id name topic").lean(),
+        Level.find({ deletedAt: null }, "_id name subtopic").lean(),
+      ]);
+
+    // 2. Build the full tree with counts = 0
+    const tree = {};
+
+    for (const ent of enterprises) {
+      const entNode = (tree[ent._id.toString()] = {
+        _id: ent._id,
+        name: ent.name,
+        count: 0,
+        classes: {},
+      });
+
+      for (const cls of classes) {
+        const clsNode = (entNode.classes[cls._id.toString()] = {
+          _id: cls._id,
+          name: cls.name,
+          count: 0,
+          subjects: {},
+        });
+
+        for (const subj of subjects.filter(
+          (s) => s.class?.toString() === cls._id.toString()
+        )) {
+          const subjNode = (clsNode.subjects[subj._id.toString()] = {
+            _id: subj._id,
+            name: subj.name,
+            count: 0,
+            topics: {},
+          });
+
+          for (const topic of topics.filter(
+            (t) => t.subject?.toString() === subj._id.toString()
+          )) {
+            const topicNode = (subjNode.topics[topic._id.toString()] = {
+              _id: topic._id,
+              name: topic.name,
+              count: 0,
+              subtopics: {},
+            });
+
+            for (const subt of subtopics.filter(
+              (s) => s.topic?.toString() === topic._id.toString()
+            )) {
+              const subtNode = (topicNode.subtopics[subt._id.toString()] = {
+                _id: subt._id,
+                name: subt.name,
+                count: 0,
+                levels: {},
+              });
+
+              for (const lvl of levels.filter(
+                (l) => l.subtopic?.toString() === subt._id.toString()
+              )) {
+                subtNode.levels[lvl._id.toString()] = {
+                  _id: lvl._id,
+                  name: lvl.name,
+                  count: 0,
+                };
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Fetch user's questions and apply count updates
+    const questions = await Question.find({
+      creator: user._id,
+      deletedAt: { $in: [null, undefined] },
+    })
+      .populate([
+        { path: "review", select: "approved reviewedAt rating" },
+        "enterprise class subject topic subtopic level",
+      ])
+      .lean();
+
+    let questionCount = 0;
+    let reviewedCount = 0;
+    let approvedCount = 0;
+    let unapprovedCount = 0;
+    let totalRating = 0;
+    let ratingCount = 0;
+
+    for (const q of questions) {
+      questionCount++;
+
+      if (q.review?.reviewedAt) {
+        reviewedCount++;
+        if (q.review.approved) approvedCount++;
+        else unapprovedCount++;
+
+        if (typeof q.review.rating === "number") {
+          totalRating += q.review.rating;
+          ratingCount++;
+        }
+      }
+
+      const eId = q.enterprise?._id?.toString();
+      const cId = q.class?._id?.toString();
+      const sId = q.subject?._id?.toString();
+      const tId = q.topic?._id?.toString();
+      const stId = q.subtopic?._id?.toString();
+      const lId = q.level?._id?.toString();
+
+      if (
+        eId &&
+        cId &&
+        sId &&
+        tId &&
+        stId &&
+        lId &&
+        tree[eId]?.classes[cId]?.subjects[sId]?.topics[tId]?.subtopics[stId]
+          ?.levels[lId]
+      ) {
+        tree[eId].count++;
+        tree[eId].classes[cId].count++;
+        tree[eId].classes[cId].subjects[sId].count++;
+        tree[eId].classes[cId].subjects[sId].topics[tId].count++;
+        tree[eId].classes[cId].subjects[sId].topics[tId].subtopics[stId]
+          .count++;
+        tree[eId].classes[cId].subjects[sId].topics[tId].subtopics[stId].levels[
+          lId
+        ].count++;
+      }
+    }
+
+    // 4. Transform tree to array
+    const breakdown = Object.values(tree).map((ent) => ({
+      _id: ent._id,
+      name: ent.name,
+      count: ent.count,
+      classes: Object.values(ent.classes).map((cls) => ({
+        _id: cls._id,
+        name: cls.name,
+        count: cls.count,
+        subjects: Object.values(cls.subjects).map((subj) => ({
+          _id: subj._id,
+          name: subj.name,
+          count: subj.count,
+          topics: Object.values(subj.topics).map((top) => ({
+            _id: top._id,
+            name: top.name,
+            count: top.count,
+            subtopics: Object.values(top.subtopics).map((subt) => ({
+              _id: subt._id,
+              name: subt.name,
+              count: subt.count,
+              levels: Object.values(subt.levels),
+            })),
+          })),
+        })),
+      })),
+    }));
+
+    const averageRating =
+      ratingCount > 0 ? Number((totalRating / ratingCount).toFixed(2)) : null;
+
+    return handleSuccess(
+      res,
+      {
+        user,
+        stats: {
+          questionCount,
+          reviewedCount,
+          approvedCount,
+          unapprovedCount,
+          totalRating,
+          ratingCount,
+          averageRating,
+        },
+        breakdown,
+      },
+      "User profile fetched successfully",
+      200
+    );
+  } catch (err) {
+    console.error("User profile fetch error:", err);
+    return handleError(res, err, "Failed to fetch user profile", 500);
   }
 };
