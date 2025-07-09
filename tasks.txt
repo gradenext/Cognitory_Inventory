@@ -1,6 +1,8 @@
 1 - sort order in get apis
 2 - create super admin with all data and priveleges
 3 - update review
+4 - reviewable field
+5 - editable field
 5 - updated question if rejected and allowedEdit
 6 - assign enterprise and wildcard enterprise.
 

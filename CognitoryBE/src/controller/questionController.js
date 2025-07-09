@@ -330,10 +330,7 @@ export const getOneUnreviewedQuestion = async (req, res) => {
   try {
     const { enterpriseId } = req.query;
 
-    let filter = {
-      deletedAt: null,
-      $or: [{ review: null }, { "review.reviewedAt": null }],
-    };
+    let filter = { deletedAt: null };
 
     if (enterpriseId) {
       const invalidIds = isValidMongoId([
@@ -351,7 +348,8 @@ export const getOneUnreviewedQuestion = async (req, res) => {
       filter.enterprise = enterpriseId;
     }
 
-    const question = await Question.findOne(filter, "-__v")
+    // Fetch the oldest unreviewed question
+    const question = await Question.find(filter, "-__v")
       .populate([
         { path: "enterprise", select: "_id name" },
         { path: "class", select: "_id name" },
@@ -362,20 +360,23 @@ export const getOneUnreviewedQuestion = async (req, res) => {
         { path: "creator", select: "_id name" },
         {
           path: "review",
-          select: "-__v",
+          select: "_id reviewedAt reviewedBy",
           populate: { path: "reviewedBy", select: "_id name" },
         },
       ])
       .sort({ createdAt: 1 })
       .exec();
 
-    if (!question) {
+    // Now filter unreviewed ones (review === null OR review.reviewedAt === null)
+    const unreviewed = question.find((q) => !q.review || !q.review.reviewedAt);
+
+    if (!unreviewed) {
       return handleError(res, {}, "No unreviewed question found", 404);
     }
 
     return handleSuccess(
       res,
-      { question },
+      { question: unreviewed },
       "Unreviewed question fetched successfully",
       200
     );
