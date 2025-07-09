@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Star, ChevronDown, ChevronRight } from "lucide-react";
+import { Star, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { getUserProfile } from "../../services/getAPIs";
 
 const CountBadge = ({ label, count }) => (
@@ -120,10 +120,16 @@ const UserProfilePage = () => {
   }, []);
 
   if (!user || !stats)
-    return <div className="text-white px-6 py-10">Loading...</div>;
+    return (
+      <div className="text-white px-6 py-10">
+        <p className="text-white text-sm py-24 w-full flex justify-center items-center">
+          <Loader2 size={40} className="animate-spin" />
+        </p>
+      </div>
+    );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10 space-y-10">
+    <div className=" mx-auto px-4 py-10 space-y-10">
       <div className="bg-white/5 border border-white/20 rounded-xl shadow">
         <div className="p-6 space-y-4">
           <div className="flex items-center gap-4">
