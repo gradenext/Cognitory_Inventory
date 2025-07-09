@@ -93,6 +93,16 @@ const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
               label={review?.reviewedAt ? "Reviewed" : "Not Reviewed"}
               color={review?.reviewedAt ? "bg-green-500/20" : "bg-red-500/20"}
             />
+            {review?.reviewedAt && (
+              <Chip
+                label={review?.reviewedAt ? "Aprroved" : "Not Approved"}
+                color={review?.reviewedAt ? "bg-green-500/20" : "bg-red-500/20"}
+              />
+            )}
+
+            {review?.editAllowed && (
+              <Chip label={"Editable"} color={"bg-green-500/20"} />
+            )}
           </div>
 
           <h3
@@ -211,6 +221,12 @@ const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
             {updatedAt && (
               <p>
                 <strong>Updated:</strong> {new Date(updatedAt).toLocaleString()}
+              </p>
+            )}
+            {review?.reviewedAt && (
+              <p>
+                <strong>Reviewed:</strong>{" "}
+                {new Date(review?.reviewedAt).toLocaleString()}
               </p>
             )}
           </div>

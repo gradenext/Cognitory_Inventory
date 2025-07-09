@@ -102,20 +102,21 @@ export const getAllUsers = async () => {
   }
 };
 
-export const getAllQuestion = async (approved, reviewed) => {
+export const getAllQuestion = async (approved = null, reviewed = null) => {
   try {
-    let query = "";
-    if (approved) {
-      query = query + `approved=${approved}`;
+    let query = [];
+    if (approved !== null) {
+      query.push(`approved=${approved}`);
     }
-    if (reviewed) {
-      query = query + `reviewed=${reviewed}`;
+    if (reviewed !== null) {
+      query.push(`reviewed=${reviewed}`);
     }
-    const response = await api.get(`/question?filterDeleted=true&${query}`);
+    const response = await api.get(
+      `/question?filterDeleted=true&${query.join("&")}`
+    );
     return response?.data;
   } catch (error) {
     console.log(error);
-    toast.error(error.response?.data?.message);
     return [];
   }
 };
@@ -130,7 +131,7 @@ export const getSingleQuestionForReview = async () => {
     return response?.data?.data;
   } catch (error) {
     console.log(error);
-    toast.error(error.response?.data?.message);
+
     throw error;
   }
 };

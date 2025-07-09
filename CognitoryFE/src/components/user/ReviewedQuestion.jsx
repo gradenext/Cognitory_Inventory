@@ -4,7 +4,7 @@ import QuestionCard from "../shared/QuestionCard";
 import { Loader2 } from "lucide-react";
 
 const ReviewedQuestion = () => {
-  const { questions, questionsQuery } = useQueryObject({ approved: true });
+  const { questions, questionsQuery } = useQueryObject({ reviewed: true });
   const isLoading = questionsQuery?.isLoading;
   const total = questions?.data?.total || 0;
   const list = questions?.data?.questions || [];
@@ -29,7 +29,7 @@ const ReviewedQuestion = () => {
           No question reviewed yet.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
+        <div className="flex flex-col gap-4">
           {list.map((question) => (
             <QuestionCard key={question._id} question={question} />
           ))}

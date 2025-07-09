@@ -24,6 +24,7 @@ const Review = () => {
   const getQuestion = async () => {
     setQuestionLoading(true);
     try {
+      setQuestion(null);
       const res = await getSingleQuestionForReview();
       setQuestion(res.question);
     } catch (err) {
@@ -57,7 +58,7 @@ const Review = () => {
 
     const result = validateWithZod(reviewSchema, payload);
     if (!result.success) {
-        console.log(result.errors)
+      console.log(result.errors);
       setError(result.errors);
       toast.error("Please check all fields");
       return;
@@ -67,6 +68,7 @@ const Review = () => {
       setLoading(true);
       await reviewQuestion(question?._id, payload);
       toast.success("Review submitted!");
+      await getQuestion();
     } catch (err) {
       toast.error(
         err?.response?.data?.message ||
@@ -82,6 +84,15 @@ const Review = () => {
     return (
       <div className="text-white flex justify-center items-center h-screen w-full">
         <Loader2 size={40} className="animate-spin" />
+      </div>
+    );
+
+  if (!questionLoading && !question)
+    return (
+      <div className="h-screen flex justify-center items-center">
+        <p className="text-white text-2xl italic py-24 w-full flex justify-center items-center">
+          No Question for review available.
+        </p>
       </div>
     );
 
@@ -183,7 +194,7 @@ const Review = () => {
 
         <button
           type="submit"
-          className="bg-primaryColor text-white bg-black cursor-pointer hover:bg-white hover:text-black transition-colors duration-300 w-full py-2 px-4 rounded-lg disabled:opacity-50"
+          className="bg-primaryColor flex justify-center text-white bg-black cursor-pointer hover:bg-white hover:text-black transition-colors duration-300 w-full py-2 px-4 rounded-lg disabled:opacity-50"
           disabled={loading}
         >
           {loading ? <Loader2 className="animate-spin" /> : "Submit Review"}

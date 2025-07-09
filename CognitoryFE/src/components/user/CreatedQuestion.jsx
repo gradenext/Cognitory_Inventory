@@ -4,7 +4,7 @@ import QuestionCard from "../shared/QuestionCard";
 import { Loader2 } from "lucide-react";
 
 const CreatedQuestion = () => {
-  const { questions, questionsQuery } = useQueryObject({ approved: false });
+  const { questions, questionsQuery } = useQueryObject({ reviewed: false });
   const isLoading = questionsQuery?.isLoading;
   const total = questions?.data?.total || 0;
   const list = questions?.data?.questions || [];
