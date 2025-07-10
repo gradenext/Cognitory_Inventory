@@ -10,19 +10,19 @@
 
 User -
     User profile
-        - user data
-        - questions created so far count
-        - question reviewed so far count
-        - question unreviewed count
-        - avg rating
-        - curriculum wise question count
-        - curriculum wise avg rating
+        - user data ----
+        - questions created so far count ----
+        - question reviewed so far count ----
+        - question unreviewed count ----
+        - curriculum wise question count ----
+        - curriculum wise avg rating ----
     Add question
         - A form to create questions ----
     Created question
         - question created but not reviewed ----
         - advanced filtering
     Reviewed question
+        - avg rating in each filter
         - question reviewed ----
         - advanced filtering
         - update question, if rejected and edit allowed.
