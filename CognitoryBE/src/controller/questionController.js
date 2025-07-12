@@ -156,7 +156,7 @@ export const getAllQuestions = async (req, res) => {
       levelId,
       reviewed,
       approved,
-      filterDeleted = "false",
+      filterDeleted = "true",
       sort = "createdAt:desc",
       page = 1,
       limit = 10,
@@ -383,5 +383,53 @@ export const getOneUnreviewedQuestion = async (req, res) => {
   } catch (err) {
     console.error("Fetch unreviewed question error:", err);
     return handleError(res, err, "Failed to fetch unreviewed question", 500);
+  }
+};
+
+export const softDeleteQuestion = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const { questionId } = req.params;
+
+    const refsToCheck = [{ id: questionId, key: "Question ID" }];
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const deletedQuestion = await session.withTransaction(async () => {
+      const question = await Question.findOne(
+        { _id: questionId, deletedAt: null },
+        null,
+        { session }
+      );
+
+      if (!question) {
+        throw new Error("Question not found or already deleted");
+      }
+
+      question.deletedAt = new Date();
+      await question.save({ session });
+
+      return await Question.findById(questionId, "-slug -__v").session(session);
+    });
+
+    return handleSuccess(
+      res,
+      deletedQuestion,
+      "Question soft deleted successfully",
+      200
+    );
+  } catch (err) {
+    console.error("Soft delete question error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
+
+    return handleError(res, err, "Failed to soft delete question", 500);
+  } finally {
+    await session.endSession();
   }
 };
