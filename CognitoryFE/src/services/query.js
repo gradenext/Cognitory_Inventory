@@ -24,38 +24,38 @@ export const useQueryObject = ({
   const { pathname } = useLocation();
 
   const enterprises = useQuery({
-    queryKey: ["enterprise"],
+    queryKey: ["enterprise", role],
     queryFn: () => getEnterprise(),
     enabled: role === "super",
   });
 
   const classes = useQuery({
-    queryKey: ["class", enterpriseId],
-    queryFn: () => getClasses(enterpriseId),
+    queryKey: ["class", enterpriseId, role],
+    queryFn: () => getClasses(enterpriseId, role),
     enabled: !!enterpriseId,
   });
 
   const subjects = useQuery({
-    queryKey: ["subject", classId],
-    queryFn: () => getSubjects(classId),
+    queryKey: ["subject", classId, role],
+    queryFn: () => getSubjects(classId, role),
     enabled: !!classId,
   });
 
   const topics = useQuery({
-    queryKey: ["topics", subjectId],
-    queryFn: () => getTopics(subjectId),
+    queryKey: ["topics", subjectId, role],
+    queryFn: () => getTopics(subjectId, role),
     enabled: !!subjectId,
   });
 
   const subtopics = useQuery({
-    queryKey: ["subtopics", topicId],
-    queryFn: () => getSubtopics(topicId),
+    queryKey: ["subtopics", topicId, role],
+    queryFn: () => getSubtopics(topicId, role),
     enabled: !!topicId,
   });
 
   const levels = useQuery({
-    queryKey: ["levels", subtopicId],
-    queryFn: () => getLevels(subtopicId),
+    queryKey: ["levels", subtopicId, role],
+    queryFn: () => getLevels(subtopicId, role),
     enabled: !!subtopicId,
   });
 
@@ -71,7 +71,7 @@ export const useQueryObject = ({
 
   const questions = useQuery({
     queryKey: ["questions", approved, reviewed],
-    queryFn: () => getAllQuestion(approved, reviewed),
+    queryFn: () => getAllQuestion(approved, reviewed, role),
     enabled: shouldFetchQuestions,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchInterval: 10 * 60 * 1000, // 10 minutes

@@ -4,7 +4,7 @@ import { api } from "./api";
 export const getEnterprise = async (role = null) => {
   try {
     const response = await api.get(
-      `/enterprise?&paginate=false&filterDeleted=${role === "super"}`
+      `/enterprise?filterDeleted=${role !== "super"}`
     );
 
     return response?.data?.data;
@@ -18,9 +18,7 @@ export const getEnterprise = async (role = null) => {
 export const getClasses = async (enterpriseId, role = null) => {
   try {
     const response = await api.get(
-      `/class?enterpriseId=${enterpriseId}&paginate=false&filterDeleted=${
-        role === "super"
-      }`
+      `/class?enterpriseId=${enterpriseId}&filterDeleted=${role !== "super"}`
     );
 
     return response?.data?.data;
@@ -34,9 +32,7 @@ export const getClasses = async (enterpriseId, role = null) => {
 export const getSubjects = async (classId, role = null) => {
   try {
     const response = await api.get(
-      `/subject?classId=${classId}&paginate=false&filterDeleted=${
-        role === "super"
-      }`
+      `/subject?classId=${classId}&filterDeleted=${role !== "super"}`
     );
     return response?.data?.data;
   } catch (error) {
@@ -49,9 +45,7 @@ export const getSubjects = async (classId, role = null) => {
 export const getTopics = async (subjectId, role = null) => {
   try {
     const response = await api.get(
-      `/topic?subjectId=${subjectId}&paginate=false&filterDeleted=${
-        role === "super"
-      }`
+      `/topic?subjectId=${subjectId}&filterDeleted=${role !== "super"}`
     );
     return response?.data?.data;
   } catch (error) {
@@ -64,9 +58,7 @@ export const getTopics = async (subjectId, role = null) => {
 export const getSubtopics = async (topicId, role = null) => {
   try {
     const response = await api.get(
-      `/subtopic?topicId=${topicId}&paginate=false&filterDeleted=${
-        role === "super"
-      }`
+      `/subtopic?topicId=${topicId}&filterDeleted=${role !== "super"}`
     );
     return response?.data?.data;
   } catch (error) {
@@ -79,9 +71,7 @@ export const getSubtopics = async (topicId, role = null) => {
 export const getLevels = async (subtopicId, role = null) => {
   try {
     const response = await api.get(
-      `/level?subtopicId=${subtopicId}&paginate=false&filterDeleted=${
-        role === "super"
-      }`
+      `/level?subtopicId=${subtopicId}&filterDeleted=${role !== "super"}`
     );
     return response?.data?.data;
   } catch (error) {
@@ -113,9 +103,11 @@ export const getUserProfile = async () => {
   }
 };
 
-
-
-export const getAllQuestion = async (approved = null, reviewed = null) => {
+export const getAllQuestion = async (
+  approved = null,
+  reviewed = null,
+  role = null
+) => {
   try {
     let query = [];
     if (approved !== null) {
@@ -125,7 +117,7 @@ export const getAllQuestion = async (approved = null, reviewed = null) => {
       query.push(`reviewed=${reviewed}`);
     }
     const response = await api.get(
-      `/question?filterDeleted=true&${query.join("&")}`
+      `/question?filterDeleted=${role !== "super"}&${query.join("&")}`
     );
     return response?.data;
   } catch (error) {

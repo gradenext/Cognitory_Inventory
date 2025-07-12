@@ -87,7 +87,7 @@ export const getAllClasses = async (req, res) => {
       page = 1,
       limit = 10,
       paginate = "false",
-      filterDeleted = "false",
+      filterDeleted = "true",
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -190,12 +190,12 @@ export const updateClass = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
-    const { id } = req.params;
+    const { classId } = req.params;
     const { name, enterpriseId } = req.body;
 
     // Validate ID
     const refsToCheck = [
-      { model: Class, id, key: "Class ID" },
+      { model: Class, id: classId, key: "Class ID" },
       { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
     ];
     const invalidIds = isValidMongoId(refsToCheck);
@@ -217,7 +217,7 @@ export const updateClass = async (req, res) => {
     }
 
     const updatedClass = await session.withTransaction(async () => {
-      const existingClass = await Class.findById(id).session(session);
+      const existingClass = await Class.findById(classId).session(session);
       if (!existingClass) {
         throw new Error("Class not found");
       }
@@ -228,12 +228,12 @@ export const updateClass = async (req, res) => {
       if (existingClass.enterprise.toString() !== enterpriseId) {
         await Enterprise.findByIdAndUpdate(
           existingClass.enterprise,
-          { $pull: { classes: id } },
+          { $pull: { classes: classId } },
           { session }
         );
         await Enterprise.findByIdAndUpdate(
           enterpriseId,
-          { $addToSet: { classes: id } },
+          { $addToSet: { classes: classId } },
           { session }
         );
       }
@@ -245,7 +245,7 @@ export const updateClass = async (req, res) => {
         { new: true, runValidators: true, session }
       );
 
-      return await Class.findById(id, "-slug -__v")
+      return await Class.findById(classId, "-slug -__v")
         .populate("enterprise", "name email image classes _id")
         .session(session);
     });

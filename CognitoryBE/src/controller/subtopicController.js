@@ -107,7 +107,7 @@ export const getAllSubtopics = async (req, res) => {
       page = 1,
       limit = 10,
       paginate = "true",
-      filterDeleted = "false",
+      filterDeleted = "true",
     } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
     const shouldPaginate = paginate === "true";

@@ -139,7 +139,7 @@ export const getAllLevels = async (req, res) => {
       page = 1,
       limit = 10,
       paginate = "false",
-      filterDeleted = "false",
+      filterDeleted = "true",
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);

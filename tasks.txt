@@ -5,7 +5,6 @@
 5 - editable field, allow user to edit the question if rejected ----
 5 - updated question if rejected and allowedEdit
 6 - assign enterprise and wildcard enterprise.
-7 - get entire curriculum api ----
 
 
 User -
@@ -16,6 +15,7 @@ User -
         - question unreviewed count ----
         - curriculum wise question count ----
         - curriculum wise avg rating ----
+        - This week, this month.
     Add question
         - A form to create questions ----
     Created question
@@ -47,6 +47,7 @@ Admin -
         - Approved/Unapproved.
         - total questions created meta data based on curriculum.
         - advanced filtering
+        - soft delete
     Reviews
         - review one question at a time. ----
         - Allow edit ----
