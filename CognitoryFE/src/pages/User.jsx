@@ -24,12 +24,12 @@ const User = () => {
   return (
     <div className="flex pt-16">
       {/* Sidebar */}
-      <div className="w-60 fixed top-16 left-0 my-2 z-40 h-[calc(100vh-4rem)]">
+      <div className="w-20 sm:w-40 md:w-60 fixed top-16 left-0 z-40 h-[calc(100vh-4rem)]">
         <Sidebar tabs={tabs} />
       </div>
 
       {/* Main Content */}
-      <div className="ml-60 w-[calc(100vw-15rem)] min-h-[calc(100vh-4rem)] p-2">
+      <div className="md:ml-60 flex-1 w-full md:min-h-[calc(100vh-4rem)] p-2">
         <div className="bg-white/10 h-full backdrop-blur-3xl rounded-2xl shadow-md">
           <Outlet />
         </div>

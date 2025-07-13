@@ -1,5 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronUp, Star } from "lucide-react";
+import React, { useState } from "react";
+import { ChevronDown, Loader2, Star, Trash } from "lucide-react";
+import { useSelector } from "react-redux";
+import { deleteQuestion } from "../../services/deleteAPIs";
+import { toast } from "react-hot-toast";
+import Modal from "./Modal";
+import { useQueryObject } from "../../services/query";
 
 const Chip = ({ label, color }) => (
   <span
@@ -31,7 +36,26 @@ const Section = ({ title, children }) => (
 );
 
 const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
+  const role = useSelector((state) => state?.user?.user?.role);
   const [isOpen, setIsOpen] = useState(shouldOpen);
+  const [showDelete, setShowDelete] = useState(shouldOpen);
+  const [loading, setLoading] = useState(shouldOpen);
+  const { questionsQuery } = useQueryObject({});
+
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    try {
+      setLoading(true);
+      await deleteQuestion(question?._id);
+      toast.success("Question deleted succesfully");
+      setShowDelete(false);
+      await questionsQuery.refetch();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error?.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleOpen = () => {
     if (!shouldClose) {
@@ -59,6 +83,7 @@ const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
     image,
     createdAt,
     updatedAt,
+    deletedAt,
   } = question;
 
   return (
@@ -115,6 +140,18 @@ const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
             {text}
           </h3>
         </div>
+
+        {!deletedAt && role !== "user" && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDelete(true);
+            }}
+            className="bg-red-900 p-2 rounded-lg cursor-pointer"
+          >
+            <Trash className="h-4 w-4" />
+          </button>
+        )}
 
         {shouldClose && (
           <ChevronDown
@@ -232,6 +269,30 @@ const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
           </div>
         </div>
       </div>
+
+      {showDelete && (
+        <Modal
+          onClose={() => {
+            if (loading) return;
+            setShowDelete(false);
+          }}
+        >
+          <h3 className="text-lg font-semibold mb-3">Delete Question</h3>
+          <p className="text-sm mb-4 text-white">
+            Are you sure you want to delete this question?
+          </p>
+          <button
+            onClick={handleDelete}
+            disabled={loading}
+            className={`w-full bg-white text-black hover:bg-white hover:text-black cursor-pointer py-2 px-4 rounded-lg flex items-center justify-center gap-2 ${
+              loading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : null}
+            Confirm
+          </button>
+        </Modal>
+      )}
     </div>
   );
 };

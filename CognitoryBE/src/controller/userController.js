@@ -637,7 +637,7 @@ export const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const user = await User.findById(userId, "-password -__v -slug")
+    const user = await User.findById(userId, "-questions -password -__v -slug")
       .populate("approvedBy", "name email role")
       .lean();
 
@@ -656,14 +656,23 @@ export const getUserProfile = async (req, res) => {
         Level.find({ deletedAt: null }, "_id name subtopic").lean(),
       ]);
 
-    // 2. Build the full tree with counts = 0
-    const tree = {};
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
+    const tree = {};
     for (const ent of enterprises) {
       const entNode = (tree[ent._id.toString()] = {
         _id: ent._id,
         name: ent.name,
         count: 0,
+        thisWeek: 0,
+        thisMonth: 0,
+        approved: 0,
+        approvedThisWeek: 0,
+        approvedThisMonth: 0,
         classes: {},
       });
 
@@ -672,6 +681,11 @@ export const getUserProfile = async (req, res) => {
           _id: cls._id,
           name: cls.name,
           count: 0,
+          thisWeek: 0,
+          thisMonth: 0,
+          approved: 0,
+          approvedThisWeek: 0,
+          approvedThisMonth: 0,
           subjects: {},
         });
 
@@ -682,6 +696,11 @@ export const getUserProfile = async (req, res) => {
             _id: subj._id,
             name: subj.name,
             count: 0,
+            thisWeek: 0,
+            thisMonth: 0,
+            approved: 0,
+            approvedThisWeek: 0,
+            approvedThisMonth: 0,
             topics: {},
           });
 
@@ -692,6 +711,11 @@ export const getUserProfile = async (req, res) => {
               _id: topic._id,
               name: topic.name,
               count: 0,
+              thisWeek: 0,
+              thisMonth: 0,
+              approved: 0,
+              approvedThisWeek: 0,
+              approvedThisMonth: 0,
               subtopics: {},
             });
 
@@ -702,6 +726,11 @@ export const getUserProfile = async (req, res) => {
                 _id: subt._id,
                 name: subt.name,
                 count: 0,
+                thisWeek: 0,
+                thisMonth: 0,
+                approved: 0,
+                approvedThisWeek: 0,
+                approvedThisMonth: 0,
                 levels: {},
               });
 
@@ -712,6 +741,11 @@ export const getUserProfile = async (req, res) => {
                   _id: lvl._id,
                   name: lvl.name,
                   count: 0,
+                  thisWeek: 0,
+                  thisMonth: 0,
+                  approved: 0,
+                  approvedThisWeek: 0,
+                  approvedThisMonth: 0,
                 };
               }
             }
@@ -720,7 +754,6 @@ export const getUserProfile = async (req, res) => {
       }
     }
 
-    // 3. Fetch user's questions and apply count updates
     const questions = await Question.find({
       creator: user._id,
       deletedAt: { $in: [null, undefined] },
@@ -741,6 +774,11 @@ export const getUserProfile = async (req, res) => {
     for (const q of questions) {
       questionCount++;
 
+      const isApproved = q.review?.approved && q.review?.reviewedAt;
+      const createdAt = new Date(q.createdAt);
+      const isThisWeek = createdAt >= startOfWeek;
+      const isThisMonth = createdAt >= startOfMonth;
+
       if (q.review?.reviewedAt) {
         reviewedCount++;
         if (q.review.approved) approvedCount++;
@@ -759,49 +797,118 @@ export const getUserProfile = async (req, res) => {
       const stId = q.subtopic?._id?.toString();
       const lId = q.level?._id?.toString();
 
-      if (
-        eId &&
-        cId &&
-        sId &&
-        tId &&
-        stId &&
-        lId &&
+      const levelNode =
         tree[eId]?.classes[cId]?.subjects[sId]?.topics[tId]?.subtopics[stId]
-          ?.levels[lId]
-      ) {
-        tree[eId].count++;
-        tree[eId].classes[cId].count++;
-        tree[eId].classes[cId].subjects[sId].count++;
-        tree[eId].classes[cId].subjects[sId].topics[tId].count++;
-        tree[eId].classes[cId].subjects[sId].topics[tId].subtopics[stId]
-          .count++;
-        tree[eId].classes[cId].subjects[sId].topics[tId].subtopics[stId].levels[
-          lId
-        ].count++;
+          ?.levels[lId];
+      if (levelNode) {
+        // base counts
+        levelNode.count++;
+        if (isThisWeek) levelNode.thisWeek++;
+        if (isThisMonth) levelNode.thisMonth++;
+        if (isApproved) {
+          levelNode.approved++;
+          if (isThisWeek) levelNode.approvedThisWeek++;
+          if (isThisMonth) levelNode.approvedThisMonth++;
+        }
+
+        const subt =
+          tree[eId].classes[cId].subjects[sId].topics[tId].subtopics[stId];
+        subt.count++;
+        if (isThisWeek) subt.thisWeek++;
+        if (isThisMonth) subt.thisMonth++;
+        if (isApproved) {
+          subt.approved++;
+          if (isThisWeek) subt.approvedThisWeek++;
+          if (isThisMonth) subt.approvedThisMonth++;
+        }
+
+        const top = tree[eId].classes[cId].subjects[sId].topics[tId];
+        top.count++;
+        if (isThisWeek) top.thisWeek++;
+        if (isThisMonth) top.thisMonth++;
+        if (isApproved) {
+          top.approved++;
+          if (isThisWeek) top.approvedThisWeek++;
+          if (isThisMonth) top.approvedThisMonth++;
+        }
+
+        const subj = tree[eId].classes[cId].subjects[sId];
+        subj.count++;
+        if (isThisWeek) subj.thisWeek++;
+        if (isThisMonth) subj.thisMonth++;
+        if (isApproved) {
+          subj.approved++;
+          if (isThisWeek) subj.approvedThisWeek++;
+          if (isThisMonth) subj.approvedThisMonth++;
+        }
+
+        const cls = tree[eId].classes[cId];
+        cls.count++;
+        if (isThisWeek) cls.thisWeek++;
+        if (isThisMonth) cls.thisMonth++;
+        if (isApproved) {
+          cls.approved++;
+          if (isThisWeek) cls.approvedThisWeek++;
+          if (isThisMonth) cls.approvedThisMonth++;
+        }
+
+        const ent = tree[eId];
+        ent.count++;
+        if (isThisWeek) ent.thisWeek++;
+        if (isThisMonth) ent.thisMonth++;
+        if (isApproved) {
+          ent.approved++;
+          if (isThisWeek) ent.approvedThisWeek++;
+          if (isThisMonth) ent.approvedThisMonth++;
+        }
       }
     }
 
-    // 4. Transform tree to array
     const breakdown = Object.values(tree).map((ent) => ({
       _id: ent._id,
       name: ent.name,
       count: ent.count,
+      thisWeek: ent.thisWeek,
+      thisMonth: ent.thisMonth,
+      approved: ent.approved,
+      approvedThisWeek: ent.approvedThisWeek,
+      approvedThisMonth: ent.approvedThisMonth,
       classes: Object.values(ent.classes).map((cls) => ({
         _id: cls._id,
         name: cls.name,
         count: cls.count,
+        thisWeek: cls.thisWeek,
+        thisMonth: cls.thisMonth,
+        approved: cls.approved,
+        approvedThisWeek: cls.approvedThisWeek,
+        approvedThisMonth: cls.approvedThisMonth,
         subjects: Object.values(cls.subjects).map((subj) => ({
           _id: subj._id,
           name: subj.name,
           count: subj.count,
+          thisWeek: subj.thisWeek,
+          thisMonth: subj.thisMonth,
+          approved: subj.approved,
+          approvedThisWeek: subj.approvedThisWeek,
+          approvedThisMonth: subj.approvedThisMonth,
           topics: Object.values(subj.topics).map((top) => ({
             _id: top._id,
             name: top.name,
             count: top.count,
+            thisWeek: top.thisWeek,
+            thisMonth: top.thisMonth,
+            approved: top.approved,
+            approvedThisWeek: top.approvedThisWeek,
+            approvedThisMonth: top.approvedThisMonth,
             subtopics: Object.values(top.subtopics).map((subt) => ({
               _id: subt._id,
               name: subt.name,
               count: subt.count,
+              thisWeek: subt.thisWeek,
+              thisMonth: subt.thisMonth,
+              approved: subt.approved,
+              approvedThisWeek: subt.approvedThisWeek,
+              approvedThisMonth: subt.approvedThisMonth,
               levels: Object.values(subt.levels),
             })),
           })),

@@ -12,13 +12,13 @@ const router = express.Router();
 
 router.post("/", authMiddleware, createQuestion);
 router.get("/", authMiddleware, getAllQuestions);
-router.get("/questionId", authMiddleware, getQuestionById);
+router.get("/:questionId", authMiddleware, getQuestionById);
 router.get(
   "/unreviewed/single",
   authMiddleware,
   isAdmin,
   getOneUnreviewedQuestion
 );
-router.delete("/question/questionId", isAdmin, softDeleteQuestion);
+router.delete("/:questionId", authMiddleware, isAdmin, softDeleteQuestion);
 
 export default router;
