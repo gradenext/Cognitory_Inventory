@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { ArrowUpFromLine, X } from "lucide-react";
 
-const ImageUpload = ({ onSelect, disabled = false }) => {
+const ImageUpload = ({ onSelect, disabled = false, value = [] }) => {
   const fileInputRef = useRef(null);
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
@@ -23,7 +23,6 @@ const ImageUpload = ({ onSelect, disabled = false }) => {
 
   const removeImage = (index) => {
     URL.revokeObjectURL(previews[index].preview);
-
     setFiles((prev) => prev.filter((_, i) => i !== index));
     setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
@@ -31,6 +30,16 @@ const ImageUpload = ({ onSelect, disabled = false }) => {
   useEffect(() => {
     onSelect(files);
   }, [files]);
+
+  // Reset state when `value` becomes null
+  useEffect(() => {
+    if (value.length === 0) {
+      // Cleanup all preview URLs
+      previews.forEach((p) => URL.revokeObjectURL(p.preview));
+      setFiles([]);
+      setPreviews([]);
+    }
+  }, [value]);
 
   return (
     <div

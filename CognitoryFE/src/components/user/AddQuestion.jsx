@@ -326,6 +326,7 @@ const AddQuestion = () => {
             }
             error={error?.images}
             disabled={loading}
+            value={form?.images}
           />
         </div>
 
