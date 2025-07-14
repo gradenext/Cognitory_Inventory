@@ -311,7 +311,7 @@ export const softUpdateLevelName = async (req, res) => {
 
       await Level.findByIdAndUpdate(
         levelId,
-        { name },
+        { name, rank },
         { new: true, runValidators: true, session }
       );
 

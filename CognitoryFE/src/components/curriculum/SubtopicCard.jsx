@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import Update from "./Update";
 
 const SubtopicCard = ({ data }) => {
   const {
@@ -18,45 +19,50 @@ const SubtopicCard = ({ data }) => {
   )}`;
 
   return (
-    <Link to={`${_id}`}>
-      <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl text-white p-4 flex flex-col gap-2 shadow-md transition hover:shadow-lg h-fit">
-        <div className="flex items-center gap-3">
-          <img
-            src={image}
-            alt={name}
-            className="w-12 h-12 rounded-lg object-cover border border-white/20"
-          />
-          <div className="flex-1">
-            <h2 className="text-sm font-semibold truncate">{name}</h2>
-            <p className="text-xs text-gray-300 truncate">
-              Topic: {topic?.name || "—"}
+    <div className="relative">
+      <div className="absolute z-10 right-2 top-2">
+        <Update id={_id} type={"subtopic"} />
+      </div>
+      <Link to={`${_id}`}>
+        <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl text-white p-4 flex flex-col gap-2 shadow-md transition hover:shadow-lg h-fit">
+          <div className="flex items-center gap-3">
+            <img
+              src={image}
+              alt={name}
+              className="w-12 h-12 rounded-lg object-cover border border-white/20"
+            />
+            <div className="flex-1">
+              <h2 className="text-sm font-semibold truncate">{name}</h2>
+              <p className="text-xs text-gray-300 truncate">
+                Topic: {topic?.name || "—"}
+              </p>
+              <p className="text-xs text-gray-300 truncate">
+                Subject: {subject?.name || "—"}
+              </p>
+              <p className="text-xs text-gray-300 truncate">
+                Class: {cls?.name || "—"}
+              </p>
+              <p className="text-xs text-gray-300 truncate">
+                Enterprise: {enterprise?.name || "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-2 text-xs text-gray-400 flex flex-col gap-1">
+            <p>
+              levels:{" "}
+              <span className="text-white font-medium">{levels.length}</span>
             </p>
-            <p className="text-xs text-gray-300 truncate">
-              Subject: {subject?.name || "—"}
-            </p>
-            <p className="text-xs text-gray-300 truncate">
-              Class: {cls?.name || "—"}
-            </p>
-            <p className="text-xs text-gray-300 truncate">
-              Enterprise: {enterprise?.name || "—"}
+            <p>
+              Created:{" "}
+              <span className="text-white font-medium">
+                {new Date(createdAt).toLocaleDateString()}
+              </span>
             </p>
           </div>
         </div>
-
-        <div className="mt-2 text-xs text-gray-400 flex flex-col gap-1">
-          <p>
-            levels:{" "}
-            <span className="text-white font-medium">{levels.length}</span>
-          </p>
-          <p>
-            Created:{" "}
-            <span className="text-white font-medium">
-              {new Date(createdAt).toLocaleDateString()}
-            </span>
-          </p>
-        </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 };
 

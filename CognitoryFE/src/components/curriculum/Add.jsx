@@ -14,6 +14,7 @@ import Input from "../shared/Input";
 import Select from "../shared/Select";
 import { useQueryObject } from "../../services/query";
 import { useSelector } from "react-redux";
+import { Loader2 } from "lucide-react";
 
 const rankOptions = Array.from({ length: 5 }, (_, i) => ({
   label: `Rank ${i + 1}`,
@@ -87,7 +88,8 @@ const Add = ({ type }) => {
     }
   };
 
-  const onSubmit = async () => {
+  const onSubmit = async (e) => {
+    e.preventDefault();
     if (role !== "super" && type === "enterprise") {
       toast.error("Reserver for super admin");
       setOpen(false);
@@ -151,7 +153,7 @@ const Add = ({ type }) => {
 
       {open && (
         <Modal onClose={() => !loading && setOpen(false)} title={`Add ${type}`}>
-          <div className="space-y-4 mt-4">
+          <form onSubmit={onSubmit} className="space-y-4 mt-4">
             {type === "enterprise" && (
               <Input
                 label="Email"
@@ -184,25 +186,32 @@ const Add = ({ type }) => {
                 disabled={loading}
               />
             )}
-          </div>
 
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              className="px-4 py-2 cursor-pointer rounded-xl border border-white/20 text-white/80 hover:text-white hover:border-white/40 transition-all disabled:opacity-50"
-              onClick={() => !loading && setOpen(false)}
-              disabled={loading}
-            >
-              Cancel
-            </button>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                className="px-4 py-2 cursor-pointer rounded-xl border border-white/20 text-white/80 hover:text-white hover:border-white/40 transition-all disabled:opacity-50"
+                onClick={() => !loading && setOpen(false)}
+                disabled={loading}
+                type="button"
+              >
+                Cancel
+              </button>
 
-            <button
-              className="px-4 py-2 cursor-pointer rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-50"
-              onClick={onSubmit}
-              disabled={loading}
-            >
-              {loading ? "Creating..." : "Create"}
-            </button>
-          </div>
+              <button
+                className="px-4 py-2 flex items-center justify-center gap-2 cursor-pointer rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-50"
+                type="submit"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin w-4 h-4" />
+                  </>
+                ) : (
+                  "Create"
+                )}
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
     </>
