@@ -14,6 +14,7 @@ import handleError from "../helper/handleError.js";
 import handleSuccess from "../helper/handleSuccess.js";
 import { verifyModelReferences } from "../helper/referenceCheck.js";
 import isValidMongoId from "../helper/isMongoId.js";
+import { getPaginationMeta } from "../helper/getPaginationMeta.js";
 
 export const createQuestion = async (req, res) => {
   const session = await mongoose.startSession();
@@ -275,11 +276,8 @@ export const getAllQuestions = async (req, res) => {
     return handleSuccess(
       res,
       {
-        ...(shouldPaginate && {
-          page: Number(page),
-          limit: Number(limit),
-          totalPages: Math.ceil(total / Number(limit)),
-        }),
+        ...(shouldPaginate &&
+          getPaginationMeta({ page, limit, totalItems: total })),
         total,
         questions,
       },

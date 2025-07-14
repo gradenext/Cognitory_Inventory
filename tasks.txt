@@ -1,3 +1,12 @@
+Priority
+
+GradNext API
+Edit Question
+Delete Entity
+Hard Update Entity
+
+
+
 1 - sort order in get apis
 2 - create super admin with all data and priveleges
 3 - update review
@@ -5,7 +14,7 @@
 5 - editable field, allow user to edit the question if rejected ----
 5 - updated question if rejected and allowedEdit
 6 - assign enterprise and wildcard enterprise.
-
+7 - Bulk Review instead of one at a time.
 
 User -
     User profile
@@ -57,7 +66,7 @@ Admin -
     Curriculum
         - view currilculum ----
         - Add ----
-        - soft update
+        - soft update ----
         - hard Update
         - soft delete
 

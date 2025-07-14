@@ -12,6 +12,7 @@ import handleError from "../helper/handleError.js";
 import { validateWithZod } from "../validations/validate.js";
 import { classSchema } from "../validations/class.js";
 import { z } from "zod";
+import { getPaginationMeta } from "../helper/getPaginationMeta.js";
 
 export const createClass = async (req, res) => {
   const session = await mongoose.startSession();
@@ -139,11 +140,12 @@ export const getAllClasses = async (req, res) => {
     return handleSuccess(
       res,
       {
-        ...(shouldPaginate && {
-          page: Number(page),
-          limit: Number(limit),
-          totalPages: Math.ceil(totalCount / Number(limit)),
-        }),
+        ...(shouldPaginate &&
+          getPaginationMeta({
+            page,
+            limit,
+            totalItems: totalCount,
+          })),
         total: totalCount,
         classes,
       },

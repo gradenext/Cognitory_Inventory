@@ -11,6 +11,7 @@ import { verifyModelReferences } from "../helper/referenceCheck.js";
 import handleSuccess from "../helper/handleSuccess.js";
 import { subtopicSchema } from "../validations/subtopic.js";
 import { z } from "zod";
+import { getPaginationMeta } from "../helper/getPaginationMeta.js";
 
 export const createSubtopic = async (req, res) => {
   const session = await mongoose.startSession();
@@ -169,11 +170,12 @@ export const getAllSubtopics = async (req, res) => {
     return handleSuccess(
       res,
       {
-        ...(shouldPaginate && {
-          page: Number(page),
-          limit: Number(limit),
-          totalPages: Math.ceil(totalCount / Number(limit)),
-        }),
+        ...(shouldPaginate &&
+          getPaginationMeta({
+            page,
+            limit,
+            totalItems: totalCount,
+          })),
         total: totalCount,
         subtopics,
       },
