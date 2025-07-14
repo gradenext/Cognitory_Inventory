@@ -431,3 +431,199 @@ export const softDeleteQuestion = async (req, res) => {
     await session.endSession();
   }
 };
+
+export const getGradeNextQuestions = async (req, res) => {
+  try {
+    let {
+      class: classParam,
+      subject,
+      topic,
+      subtopic,
+      level,
+      reviewed,
+      approved,
+      filterDeleted = "true",
+      sort = "createdAt:desc",
+      page = 1,
+      limit = 10,
+      paginate = "false",
+      random = "false",
+    } = req.query;
+
+    const { enterprise } = req.params;
+
+    const shouldPaginate = paginate === "true";
+    const shouldFilterDeleted = filterDeleted === "true";
+    const shouldRandomize = random === "true";
+
+    // Helper to resolve a slug OR ID to _id
+    const resolveId = async (model, label, value) => {
+      if (!value) return null;
+      const doc = await model.findOne({
+        slug: value,
+        ...(shouldFilterDeleted ? { deletedAt: null } : {}),
+      });
+      if (!doc) {
+        throw new Error(`${label} with slug '${value}' not found`);
+      }
+      return doc._id.toString();
+    };
+
+    // Resolve all references
+    const [enterpriseId, classId, subjectId, topicId, subtopicId, levelId] =
+      await Promise.all([
+        resolveId(Enterprise, "Enterprise", enterprise),
+        resolveId(Class, "Class", classParam),
+        resolveId(Subject, "Subject", subject),
+        resolveId(Topic, "Topic", topic),
+        resolveId(Subtopic, "Subtopic", subtopic),
+        resolveId(Level, "Level", level),
+      ]);
+
+    console.log(enterpriseId, classId, subjectId, topicId, subtopicId, levelId);
+
+    // Build refsToCheck and Mongo query
+    const refsToCheck = [];
+    const params = {};
+
+    if (enterpriseId) {
+      refsToCheck.push({
+        model: Enterprise,
+        id: enterpriseId,
+        key: "Enterprise ID",
+      });
+      params.enterprise = enterpriseId;
+    }
+    if (classId) {
+      refsToCheck.push({ model: Class, id: classId, key: "Class ID" });
+      params.class = classId;
+    }
+    if (subjectId) {
+      refsToCheck.push({ model: Subject, id: subjectId, key: "Subject ID" });
+      params.subject = subjectId;
+    }
+    if (topicId) {
+      refsToCheck.push({ model: Topic, id: topicId, key: "Topic ID" });
+      params.topic = topicId;
+    }
+    if (subtopicId) {
+      refsToCheck.push({ model: Subtopic, id: subtopicId, key: "Subtopic ID" });
+      params.subtopic = subtopicId;
+    }
+    if (levelId) {
+      refsToCheck.push({ model: Level, id: levelId, key: "Level ID" });
+      params.level = levelId;
+    }
+
+    if (shouldFilterDeleted) {
+      params.deletedAt = null;
+    }
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    await verifyModelReferences(refsToCheck);
+
+    const [sortField, sortDirection] = sort.split(":");
+    const sortOption = {
+      [sortField || "createdAt"]: sortDirection === "asc" ? 1 : -1,
+    };
+
+    let questions;
+
+    if (shouldRandomize) {
+      // Random fetch via $sample (not supporting pagination)
+      questions = await Question.aggregate([
+        { $match: params },
+        { $sample: { size: Number(limit) } },
+      ]);
+
+      // Re-populate via second query to support `.populate()`
+      const questionIds = questions.map((q) => q._id);
+      questions = await Question.find({ _id: { $in: questionIds } })
+        .populate([
+          { path: "enterprise", select: "_id name" },
+          { path: "class", select: "_id name" },
+          { path: "subject", select: "_id name" },
+          { path: "topic", select: "_id name" },
+          { path: "subtopic", select: "_id name" },
+          { path: "level", select: "_id name rank" },
+        ])
+        .exec();
+    } else {
+      // Normal fetch with sorting and pagination
+      questions = await Question.find(params, "-__v")
+        .sort(sortOption)
+        .populate([
+          { path: "enterprise", select: "_id name slug" },
+          { path: "class", select: "_id name slug" },
+          { path: "subject", select: "_id name slug" },
+          { path: "topic", select: "_id name slug" },
+          { path: "subtopic", select: "_id name slug" },
+          { path: "level", select: "_id name rank slug" },
+        ])
+        .exec();
+    }
+
+    // Filter after population
+    if (reviewed === "true") {
+      questions = questions.filter((q) => q.review?.reviewedAt);
+    } else if (reviewed === "false") {
+      questions = questions.filter((q) => !q.review?.reviewedAt);
+    }
+
+    if (approved === "true") {
+      questions = questions.filter((q) => q.review?.approved === true);
+    } else if (approved === "false") {
+      questions = questions.filter((q) => q.review?.approved === false);
+    }
+
+    const total = questions.length;
+
+    // Slice manually for pagination (only in normal mode)
+    if (shouldPaginate && !shouldRandomize) {
+      const skip = (Number(page) - 1) * Number(limit);
+      questions = questions.slice(skip, skip + Number(limit));
+    }
+
+    const finalQuestion = questions?.map((question) => ({
+      questionType: question?.textType,
+      questionText: question?.text,
+      options: question?.options,
+      correctAnswer: question?.answer,
+      hint: question?.hint,
+      explanation: question?.explanation,
+      images: question?.image?.files,
+      enterprise: question?.enterprise,
+      class: question?.class,
+      subject: question?.subject,
+      topic: question?.topic,
+      subtopic: question?.subtopic,
+      level: question?.level,
+    }));
+
+    return handleSuccess(
+      res,
+      {
+        ...(shouldPaginate &&
+          !shouldRandomize &&
+          getPaginationMeta({ page, limit, totalItems: total })),
+        total,
+        questions: finalQuestion,
+      },
+      "Questions fetched successfully",
+      200
+    );
+  } catch (err) {
+    console.error("Fetch questions error:", err);
+    if (
+      err.message?.includes("not found") ||
+      err.message?.includes("with slug")
+    ) {
+      return handleError(res, {}, err.message, 404);
+    }
+    return handleError(res, err, "Failed to fetch questions", 500);
+  }
+};

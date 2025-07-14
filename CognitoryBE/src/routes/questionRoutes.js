@@ -2,6 +2,7 @@ import express from "express";
 import {
   createQuestion,
   getAllQuestions,
+  getGradeNextQuestions,
   getOneUnreviewedQuestion,
   getQuestionById,
   softDeleteQuestion,
@@ -13,6 +14,7 @@ const router = express.Router();
 router.post("/", authMiddleware, createQuestion);
 router.get("/", authMiddleware, getAllQuestions);
 router.get("/:questionId", authMiddleware, getQuestionById);
+router.get("/custom/:enterpriseId", authMiddleware, getGradeNextQuestions);
 router.get(
   "/unreviewed/single",
   authMiddleware,
