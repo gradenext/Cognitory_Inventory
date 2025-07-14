@@ -143,10 +143,15 @@ export const updateEnterprise = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
-    const { id } = req.params;
+    const { enterpriseId } = req.params;
     const { name, email } = req.body;
+    const { role } = req.user;
 
-    // Validate input
+    if (!enterpriseId) {
+      return handleError(res, {}, "Enterprise ID is required", 400);
+    }
+
+    // Step 1: Validate input using Zod
     const validationResult = validateWithZod(enterpriseSchema, { name, email });
     if (!validationResult.success) {
       return handleError(
@@ -157,27 +162,40 @@ export const updateEnterprise = async (req, res) => {
       );
     }
 
-    const refsToCheck = [{ model: Enterprise, id, key: "Enterprise ID" }];
-    const invalidIds = isValidMongoId(refsToCheck);
+    // Step 2: Validate enterprise ID
+    const invalidIds = isValidMongoId([
+      { id: enterpriseId, key: "Enterprise ID" },
+    ]);
     if (invalidIds.length > 0) {
       return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
     }
 
+    // Step 3: Main logic in transaction
     const updatedEnterprise = await session.withTransaction(async () => {
-      const existing = await Enterprise.findById(id).session(session);
-      if (!existing) {
+      const existingEnterprise = await Enterprise.findById(
+        enterpriseId
+      ).session(session);
+
+      if (!existingEnterprise) {
         throw new Error("Enterprise not found");
       }
 
+      // Step 4: Soft-delete check
+      if (existingEnterprise.deletedAt && role !== "super") {
+        throw new Error("Enterprise not found");
+      }
+
+      // Step 5: Update
       await Enterprise.findByIdAndUpdate(
-        id,
+        enterpriseId,
         { name, email },
         { new: true, runValidators: true, session }
       );
 
-      return await Enterprise.findById(id).session(session);
+      return await Enterprise.findById(enterpriseId, "-__v ").session(session);
     });
 
+    // Step 6: Return response
     return handleSuccess(
       res,
       updatedEnterprise,
@@ -187,6 +205,7 @@ export const updateEnterprise = async (req, res) => {
   } catch (err) {
     console.error("Update enterprise error:", err);
 
+    // Step 7: Handle duplicate and standard errors
     if (err.message?.includes("not found")) {
       return handleError(res, {}, err.message, 404);
     }
@@ -195,7 +214,7 @@ export const updateEnterprise = async (req, res) => {
       return handleError(
         res,
         {},
-        "Duplicate Enterprise name, use a different name",
+        "Another enterprise with this name or email already exists",
         409
       );
     }
@@ -203,14 +222,5 @@ export const updateEnterprise = async (req, res) => {
     return handleError(res, err, "Failed to update enterprise", 500);
   } finally {
     await session.endSession();
-  }
-};
-
-export const deleteEnterprise = async (req, res) => {
-  try {
-    await Enterprise.findByIdAndDelete(req.params.id);
-    res.json({ message: "Deleted" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
 };

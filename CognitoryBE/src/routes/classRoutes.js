@@ -3,8 +3,7 @@ import {
   createClass,
   getAllClasses,
   getClassById,
-  updateClass,
-  deleteClass,
+  softUpdateClassName,
 } from "../controller/classController.js";
 import { authMiddleware, isAdmin } from "../middleware/auth.js";
 
@@ -13,7 +12,6 @@ const router = express.Router();
 router.get("/", authMiddleware, getAllClasses);
 router.get("/:classId", authMiddleware, getClassById);
 router.post("/", authMiddleware, isAdmin, createClass);
-router.put("/:classId", authMiddleware, isAdmin, updateClass);
-router.delete("/:classId", authMiddleware, isAdmin, deleteClass);
+router.patch("/:classId", authMiddleware, isAdmin, softUpdateClassName);
 
 export default router;

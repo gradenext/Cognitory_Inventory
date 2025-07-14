@@ -9,6 +9,7 @@ import handleError from "../helper/handleError.js";
 import isValidMongoId from "../helper/isMongoId.js";
 import { verifyModelReferences } from "../helper/referenceCheck.js";
 import handleSuccess from "../helper/handleSuccess.js";
+import { z } from "zod";
 
 export const createTopic = async (req, res) => {
   const session = await mongoose.startSession();
@@ -101,7 +102,7 @@ export const getAllTopics = async (req, res) => {
       subjectId,
       page = 1,
       limit = 10,
-      paginate = "true",
+      paginate = "false",
       filterDeleted = "true",
     } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -209,22 +210,85 @@ export const getTopicById = async (req, res) => {
   }
 };
 
-export const updateTopic = async (req, res) => {
-  try {
-    const topic = await Topic.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    res.json(topic);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
+export const softUpdateTopicName = async (req, res) => {
+  const session = await mongoose.startSession();
 
-export const deleteTopic = async (req, res) => {
   try {
-    await Topic.findByIdAndDelete(req.params.id);
-    res.json({ message: "Deleted" });
+    const { topicId } = req.params;
+    const { name } = req.body;
+    const { role } = req.user;
+
+    // Step 1: Validate name
+    const validationResult = validateWithZod(
+      z.object({
+        name: z.string().min(1, "Name is required"),
+        topicId: z.string().min(1, "Topic ID is required"),
+      }),
+      { name, topicId }
+    );
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
+    // Step 2: Validate topic ID
+    const invalidIds = isValidMongoId([
+      { model: Topic, id: topicId, key: "Topic ID" },
+    ]);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    // Step 3: Run transaction
+    const updatedTopic = await session.withTransaction(async () => {
+      const existingTopic = await Topic.findById(topicId).session(session);
+      if (!existingTopic) {
+        throw new Error("Topic not found");
+      }
+
+      if (existingTopic.deletedAt && role !== "super") {
+        throw new Error("Topic not found");
+      }
+
+      await Topic.findByIdAndUpdate(
+        topicId,
+        { name },
+        { new: true, runValidators: true, session }
+      );
+
+      return await Topic.findById(topicId, " -__v")
+        .populate("subject", "name slug email image topics _id")
+        .session(session);
+    });
+
+    return handleSuccess(
+      res,
+      updatedTopic,
+      "Topic name updated successfully",
+      200
+    );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Soft update topic name error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
+
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return handleError(
+        res,
+        {},
+        "Another topic with this name already exists in the subject",
+        409
+      );
+    }
+
+    return handleError(res, err, "Failed to update topic name", 500);
+  } finally {
+    await session.endSession();
   }
 };

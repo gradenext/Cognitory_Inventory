@@ -3,8 +3,7 @@ import {
   createTopic,
   getAllTopics,
   getTopicById,
-  updateTopic,
-  deleteTopic,
+  softUpdateTopicName,
 } from "../controller/topicController.js";
 import { authMiddleware, isAdmin } from "../middleware/auth.js";
 
@@ -13,7 +12,6 @@ const router = express.Router();
 router.get("/", authMiddleware, getAllTopics);
 router.get("/:topicId", authMiddleware, getTopicById);
 router.post("/", authMiddleware, isAdmin, createTopic);
-router.put("/:topicId", authMiddleware, isAdmin, updateTopic);
-router.delete("/:topicId", authMiddleware, isAdmin, deleteTopic);
+router.patch("/:topicId", authMiddleware, isAdmin, softUpdateTopicName);
 
 export default router;

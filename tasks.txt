@@ -15,7 +15,7 @@ User -
         - question unreviewed count ----
         - curriculum wise question count ----
         - curriculum wise avg rating ----
-        - This week, this month.
+        - This week, this month. ----
     Add question
         - A form to create questions ----
     Created question
@@ -25,7 +25,7 @@ User -
         - avg rating in each filter
         - question reviewed ----
         - advanced filtering
-        - update question, if rejected and edit allowed.
+        - edit question, if rejected and edit allowed.
         - approved status, date ----
 
 
@@ -38,16 +38,18 @@ Admin -
         - avg rating of each user. ----
         - approve/unapprove user ----
         - promote/demote user ----
+        - View all question created by user
     Questions
         - Questions created so far(no filter). ----
         - Questions created by userId.
         - reviewed questions.
         - Update review
-        - Allow edit
         - Approved/Unapproved.
         - total questions created meta data based on curriculum.
         - advanced filtering
-        - soft delete
+        - soft delete ----
+        - Allow edit
+        - Edit Question
     Reviews
         - list all the unreviewed questions
         - review one question at a time. ----
@@ -55,7 +57,8 @@ Admin -
     Curriculum
         - view currilculum ----
         - Add ----
-        - update
+        - soft update
+        - hard Update
         - soft delete
 
 

@@ -8,6 +8,7 @@ import { subjectSchema } from "../validations/subject.js";
 import handleSuccess from "../helper/handleSuccess.js";
 import handleError from "../helper/handleError.js";
 import { verifyModelReferences } from "../helper/referenceCheck.js";
+import { z } from "zod";
 
 export const createSubject = async (req, res) => {
   const session = await mongoose.startSession();
@@ -90,7 +91,7 @@ export const getAllSubjects = async (req, res) => {
       classId,
       page = 1,
       limit = 10,
-      paginate = "true",
+      paginate = "false",
       filterDeleted = "true",
     } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -192,22 +193,85 @@ export const getSubjectById = async (req, res) => {
   }
 };
 
-export const updateSubject = async (req, res) => {
-  try {
-    const subject = await Subject.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    res.json(subject);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
+export const softUpdateSubjectName = async (req, res) => {
+  const session = await mongoose.startSession();
 
-export const deleteSubject = async (req, res) => {
   try {
-    await Subject.findByIdAndDelete(req.params.id);
-    res.json({ message: "Deleted" });
+    const { subjectId } = req.params;
+    const { name } = req.body;
+    const { role } = req.user;
+
+    // Validate name using inline schema
+    const validationResult = validateWithZod(
+      z.object({
+        name: z.string().min(1, "Name is required"),
+        subjectId: z.string().min(1, "Subject Id is required"),
+      }),
+      { name, subjectId }
+    );
+
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
+    // Validate ID
+    const invalidIds = isValidMongoId([{ id: subjectId, key: "Subject ID" }]);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    const updatedSubject = await session.withTransaction(async () => {
+      const existingSubject = await Subject.findById(subjectId).session(
+        session
+      );
+      if (!existingSubject) {
+        throw new Error("Subject not found");
+      }
+
+      if (existingSubject.deletedAt && role !== "super") {
+        throw new Error("Subject not found");
+      }
+
+      await Subject.findByIdAndUpdate(
+        subjectId,
+        { name },
+        { new: true, runValidators: true, session }
+      );
+
+      return await Subject.findById(subjectId, " -__v")
+        .populate("class", "name slug email image subjects _id")
+        .session(session);
+    });
+
+    return handleSuccess(
+      res,
+      updatedSubject,
+      "Subject name updated successfully",
+      200
+    );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Soft update subject name error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
+
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return handleError(
+        res,
+        {},
+        "Another subject with this name already exists in the class",
+        409
+      );
+    }
+
+    return handleError(res, err, "Failed to update subject name", 500);
+  } finally {
+    await session.endSession();
   }
 };

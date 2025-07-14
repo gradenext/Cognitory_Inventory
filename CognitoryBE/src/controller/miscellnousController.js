@@ -53,23 +53,23 @@ export const getFullCurriculum = async (req, res) => {
     const [classes, subjects, topics, subtopics, levels] = await Promise.all([
       Class.find(
         { enterprise: { $in: enterpriseIds }, ...deletedFilter },
-        "_id name enterprise"
+        "_id name enterprise slug"
       ),
       Subject.find(
         { enterprise: { $in: enterpriseIds }, ...deletedFilter },
-        "_id name class enterprise"
+        "_id name class enterprise slug"
       ),
       Topic.find(
         { enterprise: { $in: enterpriseIds }, ...deletedFilter },
-        "_id name subject enterprise"
+        "_id name subject enterprise slug"
       ),
       Subtopic.find(
         { enterprise: { $in: enterpriseIds }, ...deletedFilter },
-        "_id name topic enterprise"
+        "_id name topic enterprise slug"
       ),
       Level.find(
         { enterprise: { $in: enterpriseIds }, ...deletedFilter },
-        "_id name subtopic enterprise"
+        "_id name subtopic enterprise slug rank"
       ),
     ]);
 

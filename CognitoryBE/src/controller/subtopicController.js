@@ -10,6 +10,7 @@ import isValidMongoId from "../helper/isMongoId.js";
 import { verifyModelReferences } from "../helper/referenceCheck.js";
 import handleSuccess from "../helper/handleSuccess.js";
 import { subtopicSchema } from "../validations/subtopic.js";
+import { z } from "zod";
 
 export const createSubtopic = async (req, res) => {
   const session = await mongoose.startSession();
@@ -106,7 +107,7 @@ export const getAllSubtopics = async (req, res) => {
       topicId,
       page = 1,
       limit = 10,
-      paginate = "true",
+      paginate = "false",
       filterDeleted = "true",
     } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -221,22 +222,87 @@ export const getSubtopicById = async (req, res) => {
   }
 };
 
-export const updateSubtopic = async (req, res) => {
-  try {
-    const subtopic = await Subtopic.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    res.json(subtopic);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
+export const softUpdateSubtopicName = async (req, res) => {
+  const session = await mongoose.startSession();
 
-export const deleteSubtopic = async (req, res) => {
   try {
-    await Subtopic.findByIdAndDelete(req.params.id);
-    res.json({ message: "Deleted" });
+    const { subtopicId } = req.params;
+    const { name } = req.body;
+    const { role } = req.user;
+
+    // Step 1: Validate name
+    const validationResult = validateWithZod(
+      z.object({
+        name: z.string().min(1, "Name is required"),
+        subtopicId: z.string().min(1, "Subtopic ID is required"),
+      }),
+      { name, subtopicId }
+    );
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
+    // Step 2: Validate Subtopic ID
+    const invalidIds = isValidMongoId([
+      { model: Subtopic, id: subtopicId, key: "Subtopic ID" },
+    ]);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    // Step 3: Transaction
+    const updatedSubtopic = await session.withTransaction(async () => {
+      const existingSubtopic = await Subtopic.findById(subtopicId).session(
+        session
+      );
+      if (!existingSubtopic) {
+        throw new Error("Subtopic not found");
+      }
+
+      if (existingSubtopic.deletedAt && role !== "super") {
+        throw new Error("Subtopic not found");
+      }
+
+      await Subtopic.findByIdAndUpdate(
+        subtopicId,
+        { name },
+        { new: true, runValidators: true, session }
+      );
+
+      return await Subtopic.findById(subtopicId, "-__v")
+        .populate("topic", "name slug email image subtopics _id")
+        .session(session);
+    });
+
+    return handleSuccess(
+      res,
+      updatedSubtopic,
+      "Subtopic name updated successfully",
+      200
+    );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Soft update subtopic name error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
+
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return handleError(
+        res,
+        {},
+        "Another subtopic with this name already exists in the topic",
+        409
+      );
+    }
+
+    return handleError(res, err, "Failed to update subtopic name", 500);
+  } finally {
+    await session.endSession();
   }
 };

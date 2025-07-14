@@ -1,12 +1,17 @@
 import mongoose from "mongoose";
-import Class from "../models/Class.js";
 import Enterprise from "../models/Enterprise.js";
+import Class from "../models/Class.js";
+import Subject from "../models/Subject.js";
+import Topic from "../models/Topic.js";
+import Subtopic from "../models/Subtopic.js";
+import Level from "../models/Level.js";
 import { verifyModelReferences } from "../helper/referenceCheck.js";
 import isValidMongoId from "../helper/isMongoId.js";
 import handleSuccess from "../helper/handleSuccess.js";
 import handleError from "../helper/handleError.js";
 import { validateWithZod } from "../validations/validate.js";
 import { classSchema } from "../validations/class.js";
+import { z } from "zod";
 
 export const createClass = async (req, res) => {
   const session = await mongoose.startSession();
@@ -186,27 +191,23 @@ export const getClassById = async (req, res) => {
   }
 };
 
-export const updateClass = async (req, res) => {
+export const softUpdateClassName = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
     const { classId } = req.params;
-    const { name, enterpriseId } = req.body;
+    const { name } = req.body;
+    const { role } = req.user;
 
-    // Validate ID
-    const refsToCheck = [
-      { model: Class, id: classId, key: "Class ID" },
-      { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
-    ];
-    const invalidIds = isValidMongoId(refsToCheck);
-    if (invalidIds.length > 0) {
-      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
-    }
+    // Validate only `name`
+    const validationResult = validateWithZod(
+      z.object({
+        name: z.string().min(1, "Name is required"),
+        classId: z.string().min(1, "Class ID is required"),
+      }),
+      { name, classId }
+    );
 
-    const validationResult = validateWithZod(classSchema, {
-      name,
-      enterpriseId,
-    });
     if (!validationResult.success) {
       return handleError(
         res,
@@ -216,47 +217,48 @@ export const updateClass = async (req, res) => {
       );
     }
 
+    // Validate class ID
+    const invalidIds = isValidMongoId([
+      { model: Class, id: classId, key: "Class ID" },
+    ]);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
     const updatedClass = await session.withTransaction(async () => {
       const existingClass = await Class.findById(classId).session(session);
       if (!existingClass) {
         throw new Error("Class not found");
       }
 
-      await verifyModelReferences(refsToCheck, session);
-
-      // If enterprise is changing, update enterprise references
-      if (existingClass.enterprise.toString() !== enterpriseId) {
-        await Enterprise.findByIdAndUpdate(
-          existingClass.enterprise,
-          { $pull: { classes: classId } },
-          { session }
-        );
-        await Enterprise.findByIdAndUpdate(
-          enterpriseId,
-          { $addToSet: { classes: classId } },
-          { session }
-        );
+      if (existingClass.deletedAt && role !== "super") {
+        throw new Error("Class not found");
       }
 
-      // Update the class itself
       await Class.findByIdAndUpdate(
-        id,
-        { name, enterprise: enterpriseId },
+        classId,
+        { name },
         { new: true, runValidators: true, session }
       );
 
-      return await Class.findById(classId, "-slug -__v")
+      return await Class.findById(classId, " -__v")
         .populate("enterprise", "name email image classes _id")
         .session(session);
     });
 
-    return handleSuccess(res, updatedClass, `Class updated successfully`, 200);
+    return handleSuccess(
+      res,
+      updatedClass,
+      "Class name updated successfully",
+      200
+    );
   } catch (err) {
-    console.error("Update class error:", err);
+    console.error("Soft update class name error:", err);
 
     if (err.message?.includes("not found")) {
       return handleError(res, {}, err.message, 404);
     }
+
     if (err.name === "MongoServerError" && err.code === 11000) {
       return handleError(
         res,
@@ -265,17 +267,9 @@ export const updateClass = async (req, res) => {
         409
       );
     }
-    return handleError(res, err, "Failed to update class", 500);
+
+    return handleError(res, err, "Failed to update class name", 500);
   } finally {
     await session.endSession();
-  }
-};
-
-export const deleteClass = async (req, res) => {
-  try {
-    await Class.findByIdAndDelete(req.params.id);
-    res.json({ message: "Deleted" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
 };

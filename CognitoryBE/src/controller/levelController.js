@@ -11,6 +11,7 @@ import isValidMongoId from "../helper/isMongoId.js";
 import { verifyModelReferences } from "../helper/referenceCheck.js";
 import handleSuccess from "../helper/handleSuccess.js";
 import { levelSchema } from "../validations/level.js";
+import { z } from "zod";
 
 export const createLevel = async (req, res) => {
   const session = await mongoose.startSession();
@@ -260,22 +261,94 @@ export const getLevelById = async (req, res) => {
   }
 };
 
-export const updateLevel = async (req, res) => {
-  try {
-    const updated = await Level.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    res.json(updated);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
+export const softUpdateLevelName = async (req, res) => {
+  const session = await mongoose.startSession();
 
-export const deleteLevel = async (req, res) => {
   try {
-    await Level.findByIdAndDelete(req.params.id);
-    res.json({ message: "Deleted" });
+    const { levelId } = req.params;
+    const { name, rank } = req.body;
+    const { role } = req.user;
+
+    // Step 1: Validate name
+    const validationResult = validateWithZod(
+      z.object({
+        name: z.string().min(1, "Name is required"),
+        levelId: z.string().min(1, "Level ID is required"),
+        rank: z
+          .number({ required_error: "Rank of level is required" })
+          .min(1, "Must be greater than 1 ")
+          .max(10, "Must be less than 10 "),
+      }),
+      { name, rank, levelId }
+    );
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
+    // Step 2: Validate level ID
+    const invalidIds = isValidMongoId([
+      { model: Level, id: levelId, key: "Level ID" },
+    ]);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    // Step 3: Perform update in transaction
+    const updatedLevel = await session.withTransaction(async () => {
+      const existingLevel = await Level.findById(levelId).session(session);
+      if (!existingLevel) {
+        throw new Error("Level not found");
+      }
+
+      if (existingLevel.deletedAt && role !== "super") {
+        throw new Error("Level not found");
+      }
+
+      await Level.findByIdAndUpdate(
+        levelId,
+        { name },
+        { new: true, runValidators: true, session }
+      );
+
+      return await Level.findById(levelId, "-__v ")
+        .populate("subtopic", "name slug email image levels _id")
+        .session(session);
+    });
+
+    return handleSuccess(
+      res,
+      updatedLevel,
+      "Level name updated successfully",
+      200
+    );
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Soft update level name error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
+
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      const duplicateField = Object.keys(err.keyPattern || {})[0];
+
+      let message = "Duplicate entry";
+
+      if (duplicateField === "name") {
+        message = "Level with given name already exists in the subtopic";
+      } else if (duplicateField === "rank") {
+        message = "Level with given rank already exists in the subtopic";
+      }
+
+      return handleError(res, {}, message, 409);
+    }
+
+    return handleError(res, err, "Failed to update level name", 500);
+  } finally {
+    await session.endSession();
   }
 };
