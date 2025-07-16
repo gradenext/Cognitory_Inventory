@@ -12,6 +12,8 @@ const ImageUpload = ({ onSelect, disabled = false, value = [] }) => {
 
   const handleImageChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
+    if (selectedFiles.length === 0) return;
+
     const newPreviews = selectedFiles.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
@@ -19,6 +21,8 @@ const ImageUpload = ({ onSelect, disabled = false, value = [] }) => {
 
     setFiles((prev) => [...prev, ...selectedFiles]);
     setPreviews((prev) => [...prev, ...newPreviews]);
+
+    e.target.value = ""; // reset input to allow re-uploading same file
   };
 
   const removeImage = (index) => {
@@ -28,13 +32,11 @@ const ImageUpload = ({ onSelect, disabled = false, value = [] }) => {
   };
 
   useEffect(() => {
-    onSelect(files);
+    onSelect?.(files);
   }, [files]);
 
-  // Reset state when `value` becomes null
   useEffect(() => {
-    if (value.length === 0) {
-      // Cleanup all preview URLs
+    if (Array.isArray(value) && value.length === 0 && files.length > 0) {
       previews.forEach((p) => URL.revokeObjectURL(p.preview));
       setFiles([]);
       setPreviews([]);

@@ -1,18 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { useParams } from "react-router-dom";
+import toast from "react-hot-toast";
+import { Loader2 } from "lucide-react";
+
 import { addQuestionSchema } from "../../validations/question";
 import { validateWithZod } from "../../validations/validate";
+import { createQuestion, upload } from "../../services/createAPIs";
+import { useQueryObject } from "../../services/query";
+
 import Input from "../shared/Input";
-import FileUpload from "../shared/FileUpload";
 import Textarea from "../shared/Textarea";
 import Select from "../shared/Select";
-import { useQueryObject } from "../../services/query";
-import toast from "react-hot-toast";
-import { createQuestion, upload } from "../../services/createAPIs";
-import { Loader2 } from "lucide-react";
+
+import FileUpload from "../shared/FileUpload";
 
 const AddQuestion = () => {
   const { enterpriseId } = useParams();
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     text: "",
@@ -31,6 +36,23 @@ const AddQuestion = () => {
     levelId: "",
   });
 
+  const memoizedParams = useMemo(
+    () => ({
+      enterpriseId: form.enterpriseId,
+      classId: form.classId,
+      subjectId: form.subjectId,
+      topicId: form.topicId,
+      subtopicId: form.subtopicId,
+    }),
+    [
+      form.enterpriseId,
+      form.classId,
+      form.subjectId,
+      form.topicId,
+      form.subtopicId,
+    ]
+  );
+
   const {
     classes,
     classesQuery,
@@ -42,98 +64,82 @@ const AddQuestion = () => {
     subtopicsQuery,
     levels,
     levelsQuery,
-  } = useQueryObject({
-    enterpriseId: form?.enterpriseId,
-    classId: form?.classId,
-    subjectId: form?.subjectId,
-    topicId: form?.topicId,
-    subtopicId: form?.subtopicId,
-  });
+  } = useQueryObject(memoizedParams);
 
-  const classList =
-    classes?.classes?.map((cls) => ({
-      label: cls?.name,
-      value: cls?._id,
-    })) || [];
+  const classList = useMemo(
+    () => classes?.classes?.map((c) => ({ label: c.name, value: c._id })) || [],
+    [classes]
+  );
+  const subjectList = useMemo(
+    () =>
+      subjects?.subjects?.map((s) => ({ label: s.name, value: s._id })) || [],
+    [subjects]
+  );
+  const topicList = useMemo(
+    () => topics?.topics?.map((t) => ({ label: t.name, value: t._id })) || [],
+    [topics]
+  );
+  const subtopicList = useMemo(
+    () =>
+      subtopics?.subtopics?.map((s) => ({ label: s.name, value: s._id })) || [],
+    [subtopics]
+  );
+  const levelList = useMemo(
+    () =>
+      levels?.levels?.map((l) => ({
+        label: `${l.name} (${l.rank})`,
+        value: l._id,
+      })) || [],
+    [levels]
+  );
 
-  const subjectList =
-    subjects?.subjects?.map((subj) => ({
-      label: subj?.name,
-      value: subj?._id,
-    })) || [];
-
-  const topicList =
-    topics?.topics?.map((topic) => ({
-      label: topic?.name,
-      value: topic?._id,
-    })) || [];
-
-  const subtopicList =
-    subtopics?.subtopics?.map((sub) => ({
-      label: sub?.name,
-      value: sub?._id,
-    })) || [];
-
-  const levelList =
-    levels?.levels?.map((level) => ({
-      label: `${level?.name}(${level?.rank})`,
-      value: level?._id,
-    })) || [];
-
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const handleChange = (e) => {
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     setError((prev) => ({ ...prev, [name]: null }));
-  };
+  }, []);
 
-  const handleOptionChange = (idx, value) => {
-    const newOptions = [...form.options];
-    newOptions[idx] = value;
-    setForm((prev) => ({ ...prev, options: newOptions }));
-  };
+  const handleOptionChange = useCallback((index, value) => {
+    setForm((prev) => {
+      const newOptions = [...prev.options];
+      newOptions[index] = value;
+      return { ...prev, options: newOptions };
+    });
+  }, []);
+
+  const handleImageSelect = useCallback((images) => {
+    setForm((prev) => ({ ...prev, images }));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError({});
+    const validationResult = validateWithZod(addQuestionSchema, form);
 
+    if (!validationResult?.success) {
+      setError(validationResult.errors);
+      toast.error("Check all required fields");
+      return;
+    }
+
+    setLoading(true);
     try {
-      const validationResult = validateWithZod(addQuestionSchema, form);
-      if (!validationResult?.success) {
-        setError(validationResult.errors);
-        toast.error("Check all required fields");
-        return;
-      }
-      setLoading(true);
       let uploadData = {};
-      if (form?.images?.length > 0) {
-        uploadData = await upload(form?.images);
+      if (form.images.length > 0) {
+        uploadData = await upload(form.images);
       }
 
-      const urls = uploadData?.image_urls || [];
-      const imageUUID = uploadData?.image_id || null;
+      const urls = uploadData.image_urls || [];
+      const imageUUID = uploadData.image_id || null;
 
-      const response = await createQuestion({
-        text: form.text,
+      const payload = {
+        ...form,
         images: urls,
         imageUUID,
-        textType: form?.textType,
-        type: form?.type,
-        options: form?.options,
-        answer: form?.answer,
-        hint: form?.hint,
-        explanation: form?.explanation,
-        enterpriseId,
-        classId: form?.classId,
-        subjectId: form?.subjectId,
-        topicId: form?.topicId,
-        subtopicId: form?.subtopicId,
-        levelId: form?.levelId,
-      });
+      };
 
-      toast.success(response?.message);
+      const response = await createQuestion(payload);
+      toast.success(response?.message || "Question created");
 
       setForm((prev) => ({
         ...prev,
@@ -146,10 +152,9 @@ const AddQuestion = () => {
         hint: "",
         explanation: "",
       }));
-    } catch (error) {
-      console.log(error);
+    } catch (err) {
       toast.error(
-        error.response?.data?.message || error.message || "Something went wrong"
+        err?.response?.data?.message || err.message || "Something went wrong"
       );
     } finally {
       setLoading(false);
@@ -157,91 +162,81 @@ const AddQuestion = () => {
   };
 
   return (
-    <div className=" mx-auto px-6 py-10 w-full">
+    <div className="mx-auto px-6 py-10 w-full">
       <form
         onSubmit={handleSubmit}
         className="p-8 rounded-xl shadow-lg space-y-8"
       >
-        <div className="grid grid-cols-3 gap-2 ">
+        {/* Dependent Dropdowns */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           <Select
             label="Class"
-            placeholder="Select Class "
             selectedOption={form.classId}
-            onSelect={(value) => {
+            onSelect={(value) =>
               setForm((prev) => ({
                 ...prev,
                 classId: value,
-                subjectId: null,
-                topicId: null,
-                subtopicId: null,
-                levelId: null,
-              }));
-            }}
-            disabled={!(classList?.length > 0) || loading}
+                subjectId: "",
+                topicId: "",
+                subtopicId: "",
+                levelId: "",
+              }))
+            }
+            options={classList}
             loading={classesQuery?.isLoading}
-            options={classesQuery?.isLoading ? [] : classList}
             error={error?.classId}
+            disabled={loading}
           />
           <Select
             label="Subject"
-            placeholder="Select Subject "
             selectedOption={form.subjectId}
             onSelect={(value) =>
               setForm((prev) => ({
                 ...prev,
                 subjectId: value,
-                topicId: null,
-                subtopicId: null,
-                levelId: null,
+                topicId: "",
+                subtopicId: "",
+                levelId: "",
               }))
             }
-            disabled={!form?.classId || subjectsQuery?.isLoading || loading}
+            options={subjectList}
             loading={subjectsQuery?.isLoading}
-            options={
-              !form?.classId || subjectsQuery?.isLoading ? [] : subjectList
-            }
             error={error?.subjectId}
+            disabled={!form.classId || loading}
           />
           <Select
             label="Topic"
-            placeholder="Select Topic "
             selectedOption={form.topicId}
             onSelect={(value) =>
               setForm((prev) => ({
                 ...prev,
                 topicId: value,
-                subtopicId: null,
-                levelId: null,
+                subtopicId: "",
+                levelId: "",
               }))
             }
-            disabled={!form?.subjectId || topicsQuery?.isLoading || loading}
+            options={topicList}
             loading={topicsQuery?.isLoading}
-            options={
-              !form?.subjectId || topicsQuery?.isLoading ? [] : topicList
-            }
             error={error?.topicId}
+            disabled={!form.subjectId || loading}
           />
           <Select
             label="Subtopic"
-            placeholder="Select SubTopic "
             selectedOption={form.subtopicId}
             onSelect={(value) =>
               setForm((prev) => ({
                 ...prev,
                 subtopicId: value,
-                levelId: null,
+                levelId: "",
               }))
             }
-            disabled={!form?.topicId || subtopicsQuery?.isLoading || loading}
+            options={subtopicList}
             loading={subtopicsQuery?.isLoading}
-            options={
-              !form?.topicId || subtopicsQuery?.isLoading ? [] : subtopicList
-            }
             error={error?.subtopicId}
+            disabled={!form.topicId || loading}
           />
           <Select
             label="Level"
-            placeholder="Select Level "
             selectedOption={form.levelId}
             onSelect={(value) =>
               setForm((prev) => ({
@@ -249,102 +244,69 @@ const AddQuestion = () => {
                 levelId: value,
               }))
             }
-            disabled={!form?.subtopicId || levelsQuery?.isLoading || loading}
+            options={levelList}
             loading={levelsQuery?.isLoading}
-            options={
-              !form?.subtopicId || levelsQuery?.isLoading ? [] : levelList
-            }
             error={error?.levelId}
+            disabled={!form.subtopicId || loading}
           />
-
-          {/* Content ttype */}
-
           <Select
             label="Text Type"
-            placeholder="Select Text Type "
             selectedOption={form.textType}
-            onSelect={(value) => {
+            onSelect={(value) =>
               setForm((prev) => ({
                 ...prev,
                 textType: value,
-              }));
-
-              setError((prev) => ({ ...prev, textType: null }));
-            }}
+              }))
+            }
             options={[
-              {
-                label: "Text",
-                value: "text",
-              },
-              {
-                label: "Markdown",
-                value: "markdown",
-              },
-              {
-                label: "Latex",
-                value: "latex",
-              },
+              { label: "Text", value: "text" },
+              { label: "Markdown", value: "markdown" },
+              { label: "Latex", value: "latex" },
             ]}
             error={error?.textType}
             disabled={loading}
           />
-
-          {/* Question type */}
           <Select
             label="Type"
-            placeholder="Select Type "
             selectedOption={form.type}
-            onSelect={(value) => {
+            onSelect={(value) =>
               setForm((prev) => ({
                 ...prev,
                 type: value,
-              }));
-              setError((prev) => ({ ...prev, type: null }));
-            }}
+              }))
+            }
             options={[
-              {
-                label: "Input",
-                value: "input",
-              },
-              {
-                label: "Multiple",
-                value: "multiple",
-              },
+              { label: "Input", value: "input" },
+              { label: "Multiple", value: "multiple" },
             ]}
             error={error?.type}
             disabled={loading}
           />
         </div>
+
         {/* File Upload */}
-        <div>
+        <Suspense fallback={<div>Loading uploader...</div>}>
           <FileUpload
-            onSelect={(imageArray) =>
-              setForm((prev) => ({
-                ...prev,
-                images: imageArray,
-              }))
-            }
+            onSelect={handleImageSelect}
+            value={form.images}
             error={error?.images}
             disabled={loading}
-            value={form?.images}
           />
-        </div>
+        </Suspense>
 
-        {/* Input Fields */}
-
+        {/* Content Inputs */}
         <Textarea
-          label={"Question"}
-          name={"text"}
+          label="Question"
+          name="text"
           value={form.text}
-          placeholder={"Enter your question text"}
           onChange={handleChange}
           error={error?.text}
           disabled={loading}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {form?.type === "multiple" &&
-            form.options.map((opt, idx) => (
+        {form.type === "multiple" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {form.options.map((opt, idx) => (
               <Input
                 key={idx}
                 label={`Option ${idx + 1}`}
@@ -355,15 +317,16 @@ const AddQuestion = () => {
                 disabled={loading}
               />
             ))}
-        </div>
+          </div>
+        )}
+
         <Textarea
           label="Answer"
           name="answer"
           value={form.answer}
           onChange={handleChange}
-          placeholder={"Enter  answer"}
-          rows={1}
           error={error?.answer}
+          rows={1}
           disabled={loading}
         />
         <Textarea
@@ -371,7 +334,6 @@ const AddQuestion = () => {
           name="hint"
           value={form.hint}
           onChange={handleChange}
-          placeholder={"Enter hint"}
           error={error?.hint}
           disabled={loading}
         />
@@ -380,7 +342,6 @@ const AddQuestion = () => {
           name="explanation"
           value={form.explanation}
           onChange={handleChange}
-          placeholder={"Enter explanation"}
           error={error?.explanation}
           disabled={loading}
         />
