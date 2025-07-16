@@ -27,6 +27,7 @@ User -
         - This week, this month. ----
     Add question
         - A form to create questions ----
+        - view preview
     Created question
         - question created but not reviewed ----
         - advanced filtering

@@ -13,6 +13,7 @@ import Textarea from "../shared/Textarea";
 import Select from "../shared/Select";
 
 import FileUpload from "../shared/FileUpload";
+import PreviewModal from "../shared/PreviewModal";
 
 const AddQuestion = () => {
   const { enterpriseId } = useParams();
@@ -302,6 +303,7 @@ const AddQuestion = () => {
           onChange={handleChange}
           error={error?.text}
           disabled={loading}
+          placeholder="Enter question"
         />
 
         {form.type === "multiple" && (
@@ -328,6 +330,7 @@ const AddQuestion = () => {
           error={error?.answer}
           rows={1}
           disabled={loading}
+          placeholder="Enter answer"
         />
         <Textarea
           label="Hint"
@@ -336,6 +339,7 @@ const AddQuestion = () => {
           onChange={handleChange}
           error={error?.hint}
           disabled={loading}
+          placeholder="Enter hint"
         />
         <Textarea
           label="Explanation"
@@ -344,6 +348,16 @@ const AddQuestion = () => {
           onChange={handleChange}
           error={error?.explanation}
           disabled={loading}
+          placeholder="Enter explanation"
+        />
+
+        <PreviewModal
+          question={form?.text} // use raw text here
+          options={form?.options}
+          answer={form?.answer}
+          hint={form?.hint}
+          explanation={form?.explanation}
+          images={form?.images}
         />
 
         {/* Submit Button */}
