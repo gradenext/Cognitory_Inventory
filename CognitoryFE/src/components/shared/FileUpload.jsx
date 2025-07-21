@@ -1,9 +1,8 @@
 import React, { useRef, useState, useEffect } from "react";
 import { ArrowUpFromLine, X } from "lucide-react";
 
-const ImageUpload = ({ onSelect, disabled = false, value = [] }) => {
+const ImageUpload = ({ onSelect, disabled = false }) => {
   const fileInputRef = useRef(null);
-  const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
 
   const handleButtonClick = () => {
@@ -19,29 +18,29 @@ const ImageUpload = ({ onSelect, disabled = false, value = [] }) => {
       preview: URL.createObjectURL(file),
     }));
 
-    setFiles((prev) => [...prev, ...selectedFiles]);
-    setPreviews((prev) => [...prev, ...newPreviews]);
+    const updatedPreviews = [...previews, ...newPreviews];
+    setPreviews(updatedPreviews);
+    onSelect?.(updatedPreviews.map((p) => p.file));
 
-    e.target.value = ""; // reset input to allow re-uploading same file
+    e.target.value = "";
   };
 
   const removeImage = (index) => {
-    URL.revokeObjectURL(previews[index].preview);
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-    setPreviews((prev) => prev.filter((_, i) => i !== index));
+    const removed = previews[index];
+    if (removed?.preview) {
+      URL.revokeObjectURL(removed.preview);
+    }
+
+    const updatedPreviews = previews.filter((_, i) => i !== index);
+    setPreviews(updatedPreviews);
+    onSelect?.(updatedPreviews.map((p) => p.file));
   };
 
   useEffect(() => {
-    onSelect?.(files);
-  }, [files]);
-
-  useEffect(() => {
-    if (Array.isArray(value) && value.length === 0 && files.length > 0) {
+    return () => {
       previews.forEach((p) => URL.revokeObjectURL(p.preview));
-      setFiles([]);
-      setPreviews([]);
-    }
-  }, [value]);
+    };
+  }, []);
 
   return (
     <div
@@ -49,7 +48,6 @@ const ImageUpload = ({ onSelect, disabled = false, value = [] }) => {
         ${disabled ? "opacity-60 pointer-events-none select-none" : ""}
       `}
     >
-      {/* Hidden file input */}
       <input
         type="file"
         accept="image/*"
@@ -64,21 +62,21 @@ const ImageUpload = ({ onSelect, disabled = false, value = [] }) => {
       <div>
         {previews.length > 0 && (
           <div className="flex flex-wrap justify-center items-center gap-4">
-            {previews.map((img, index) => (
+            {previews.map(({ preview }, index) => (
               <div
                 key={index}
                 className="relative w-48 h-48 p-2 rounded-xl border border-white/30 shadow-inner backdrop-blur-sm"
               >
                 <img
-                  src={img.preview}
+                  src={preview}
                   alt={`preview-${index}`}
-                  className="w-full h-full object-contain"
+                  className=" h-40 object-contain"
                 />
                 {!disabled && (
                   <button
                     type="button"
                     onClick={() => removeImage(index)}
-                    className="absolute -top-2 -right-2 z-10 bg-white text-black rounded-full p-1 hover:bg-opacity-80 transition"
+                    className="absolute cursor-pointer -top-2 -right-2 z-10 bg-white text-black rounded-full p-1 hover:bg-opacity-80 transition"
                   >
                     <X className="w-4 h-4" />
                   </button>

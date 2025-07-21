@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -14,6 +14,24 @@ const PreviewModal = ({
   images = [],
 }) => {
   const [open, setOpen] = useState(false);
+  const [imageURLs, setImageURLs] = useState([]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const urls = images.map((img) =>
+      img instanceof File ? URL.createObjectURL(img) : img
+    );
+    setImageURLs(urls);
+
+    return () => {
+      urls.forEach((url, index) => {
+        if (images[index] instanceof File) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [open, images]);
 
   return (
     <>
@@ -29,9 +47,9 @@ const PreviewModal = ({
         <Modal onClose={() => setOpen(false)}>
           <div className="min-w-[50vw] border border-white/20 bg-zinc-900 rounded-lg w-full px-6 py-8 space-y-8">
             {/* Image Grid */}
-            {images.length > 0 && (
+            {imageURLs.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {images.map((src, idx) => (
+                {imageURLs.map((src, idx) => (
                   <img
                     key={idx}
                     src={src}
@@ -44,14 +62,11 @@ const PreviewModal = ({
 
             {/* Card Content */}
             <div className="text-white space-y-6">
-              {/* Question */}
               {question && (
                 <Section title="Question">
                   <MarkdownRender content={question} />
                 </Section>
               )}
-
-              {/* Options */}
               {options?.length > 0 && (
                 <Section title="Options">
                   <ul className="list-disc list-inside space-y-1">
@@ -63,22 +78,16 @@ const PreviewModal = ({
                   </ul>
                 </Section>
               )}
-
-              {/* Answer */}
               {answer && (
                 <Section title="Answer">
                   <MarkdownRender content={answer} />
                 </Section>
               )}
-
-              {/* Hint */}
               {hint && (
                 <Section title="Hint">
                   <MarkdownRender content={hint} />
                 </Section>
               )}
-
-              {/* Explanation */}
               {explanation && (
                 <Section title="Explanation">
                   <MarkdownRender content={explanation} />
@@ -92,7 +101,6 @@ const PreviewModal = ({
   );
 };
 
-// Reusable Section
 const Section = ({ title, children }) => (
   <div className="space-y-2">
     <h3 className="text-lg font-semibold text-white">{title}:</h3>
@@ -100,7 +108,6 @@ const Section = ({ title, children }) => (
   </div>
 );
 
-// Markdown + Math Renderer
 const MarkdownRender = ({ content, inline = false }) => (
   <ReactMarkdown
     children={content}
