@@ -1,7 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { useQueryObject } from "../../services/query";
 import QuestionCard from "../shared/QuestionCard";
-import { Pagination } from "flowbite-react";
 
 const Question = () => {
   const { questions, questionsQuery, page, setPage } = useQueryObject({});
