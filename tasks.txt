@@ -27,7 +27,7 @@ User -
         - This week, this month. ----
     Add question
         - A form to create questions ----
-        - view preview
+        - view preview ----
     Created question
         - question created but not reviewed ----
         - advanced filtering
@@ -61,7 +61,7 @@ Admin -
         - Allow edit
         - Edit Question
     Reviews
-        - list all the unreviewed questions
+        - list all the unreviewed questions ----
         - review one question at a time. ----
         - Allow edit ----
     Curriculum

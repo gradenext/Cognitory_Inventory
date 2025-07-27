@@ -10,6 +10,7 @@ import {
 } from "./getAPIs";
 import { useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
+import { useState } from "react";
 
 export const useQueryObject = ({
   enterpriseId = null,
@@ -20,46 +21,46 @@ export const useQueryObject = ({
   approved,
   reviewed,
 }) => {
-  const role = useSelector((state) => state?.user?.user?.role);
   const { pathname } = useLocation();
+  const role = useSelector((state) => state?.user?.user?.role);
+  const token = localStorage.getItem("token");
+  const [page, setPage] = useState(1);
 
   const enterprises = useQuery({
     queryKey: ["enterprise", role],
     queryFn: () => getEnterprise(),
-    enabled: role === "super",
+    enabled: role === "super" && token,
   });
 
   const classes = useQuery({
     queryKey: ["class", enterpriseId, role],
     queryFn: () => getClasses(enterpriseId, role),
-    enabled: !!enterpriseId,
+    enabled: !!enterpriseId && !!token,
   });
 
   const subjects = useQuery({
     queryKey: ["subject", classId, role],
     queryFn: () => getSubjects(classId, role),
-    enabled: !!classId,
+    enabled: !!classId && !!token,
   });
 
   const topics = useQuery({
     queryKey: ["topics", subjectId, role],
     queryFn: () => getTopics(subjectId, role),
-    enabled: !!subjectId,
+    enabled: !!subjectId && !!token,
   });
 
   const subtopics = useQuery({
     queryKey: ["subtopics", topicId, role],
     queryFn: () => getSubtopics(topicId, role),
-    enabled: !!topicId,
+    enabled: !!topicId && !!token,
   });
 
   const levels = useQuery({
     queryKey: ["levels", subtopicId, role],
     queryFn: () => getLevels(subtopicId, role),
-    enabled: !!subtopicId,
+    enabled: !!subtopicId && !!token,
   });
-
-  const token = localStorage.getItem("token");
 
   const shouldFetchQuestions =
     token &&
@@ -67,11 +68,12 @@ export const useQueryObject = ({
       "/user/question/reviewed",
       "/user/question/created",
       "/admin/question/all",
+      "/admin/review/all",
     ].includes(pathname);
 
   const questions = useQuery({
-    queryKey: ["questions", approved, reviewed],
-    queryFn: () => getAllQuestion(approved, reviewed, role),
+    queryKey: ["questions", approved, reviewed, page],
+    queryFn: () => getAllQuestion(approved, reviewed, role, page),
     enabled: shouldFetchQuestions,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchInterval: 10 * 60 * 1000, // 10 minutes
@@ -98,5 +100,8 @@ export const useQueryObject = ({
 
     questions: questions?.data,
     questionsQuery: questions,
+
+    page,
+    setPage,
   };
 };

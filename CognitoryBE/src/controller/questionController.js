@@ -244,11 +244,11 @@ export const getAllQuestions = async (req, res) => {
     // Filter by review.reviewedAt AFTER population
     if (reviewed === "true") {
       questions = questions.filter(
-        (q) => q.review && q.review.reviewedAt !== null
+        (q) => q.review && q.review.reviewedAt !== null && !q.review.reviewable
       );
     } else if (reviewed === "false") {
       questions = questions.filter(
-        (q) => !q.review || q.review.reviewedAt === null
+        (q) => !q.review || q.review.reviewedAt === null || q.review.reviewable
       );
     }
 
@@ -312,7 +312,20 @@ export const getQuestionById = async (req, res) => {
       filter.deletedAt = null;
     }
 
-    const cls = await Question.findOne(filter, "-slug -__v");
+    const cls = await Question.findOne(filter, "-slug -__v").populate([
+      { path: "enterprise", select: "_id name" },
+      { path: "class", select: "_id name" },
+      { path: "subject", select: "_id name" },
+      { path: "topic", select: "_id name" },
+      { path: "subtopic", select: "_id name" },
+      { path: "level", select: "_id name rank" },
+      { path: "creator", select: "_id name" },
+      {
+        path: "review",
+        select: "-__v",
+        populate: { path: "reviewedBy", select: "_id name" },
+      },
+    ]);
     if (!cls) {
       return handleError(res, {}, "Class not found", 404);
     }

@@ -68,20 +68,18 @@ export const reviewQuestion = async (req, res) => {
         question: questionId,
       }).session(session);
       if (!existingReview) {
-        return handleError(res, {}, "Review not found for this question", 404);
+        throw new Error("Review not found for this question");
       }
 
-      if (existingReview?.approvedAt) {
-        return handleError(
-          res,
-          {},
-          "A question can't be reviewed again use update",
-          404
+      if (!existingReview.reviewable) {
+        throw new Error(
+          "This question has already been reviewed. Use the update endpoint instead."
         );
       }
 
       existingReview.approved = approved;
       existingReview.editAllowed = editAllowed;
+      existingReview.reviewable = false;
       existingReview.comment = comment;
       existingReview.rating = rating;
       existingReview.reviewedAt = new Date();
@@ -108,8 +106,8 @@ export const reviewQuestion = async (req, res) => {
     if (err.message?.includes("not found")) {
       return handleError(res, {}, err.message, 404);
     }
-    if (err.message?.includes("reviewed again")) {
-      return handleError(res, {}, err.message, 404);
+    if (err.message?.includes("already been reviewed")) {
+      return handleError(res, {}, err.message, 409);
     }
 
     return handleError(res, err, "Failed to review question", 500);

@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { ChevronDown, Loader2, Star, Trash } from "lucide-react";
+import { CheckCircle, ChevronDown, Loader2, Star, Trash } from "lucide-react";
 import { useSelector } from "react-redux";
 import { deleteQuestion } from "../../services/deleteAPIs";
 import { toast } from "react-hot-toast";
 import Modal from "./Modal";
 import { useQueryObject } from "../../services/query";
+import { useNavigate } from "react-router-dom";
 
 const Chip = ({ label, color }) => (
   <span
@@ -35,10 +36,17 @@ const Section = ({ title, children }) => (
   </div>
 );
 
-const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
+const QuestionCard = ({
+  question,
+  shouldOpen = false,
+  shouldClose = true,
+  shouldDelete = true,
+  shouldReview = false,
+}) => {
+  const navigate = useNavigate();
   const role = useSelector((state) => state?.user?.user?.role);
   const [isOpen, setIsOpen] = useState(shouldOpen);
-  const [showDelete, setShowDelete] = useState(shouldOpen);
+  const [showDelete, setShowDelete] = useState(false);
   const [loading, setLoading] = useState(shouldOpen);
   const { questionsQuery } = useQueryObject({});
 
@@ -128,6 +136,11 @@ const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
             {review?.editAllowed && (
               <Chip label={"Editable"} color={"bg-green-500/20"} />
             )}
+
+            <Chip
+              label={`Images: ${image?.files?.length}`}
+              color={"bg-green-500/20"}
+            />
           </div>
 
           <h3
@@ -141,7 +154,7 @@ const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
           </h3>
         </div>
 
-        {!deletedAt && role !== "user" && (
+        {shouldDelete && !deletedAt && role !== "user" && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -152,6 +165,18 @@ const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
             <Trash className="h-4 w-4" />
           </button>
         )}
+        {shouldReview &&
+          (!review?.reviewedAt || review?.reviewable) &&
+          role !== "user" && (
+            <button
+              onClick={() => {
+                navigate(`/admin/review/${question?._id}`);
+              }}
+              className="bg-white p-2 rounded-lg cursor-pointer"
+            >
+              <CheckCircle className="h-4 w-4 text-black" />
+            </button>
+          )}
 
         {shouldClose && (
           <ChevronDown
@@ -178,10 +203,10 @@ const QuestionCard = ({ question, shouldOpen = false, shouldClose = true }) => {
             </div>
             <div className="space-y-3">
               <Section title="Reviewer Comment">
-                {review.comment || "None"}
+                {review?.comment || "None"}
               </Section>
               <Section title="Rating">
-                <Stars rating={review?.rating || 0} />
+                <Stars rating={review?.rating} />
               </Section>
             </div>
           </div>

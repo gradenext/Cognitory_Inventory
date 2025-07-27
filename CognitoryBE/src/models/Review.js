@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 const approvalSchema = new mongoose.Schema(
   {
-    reviewable: { 
+    reviewable: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     editAllowed: {
       type: Boolean,
