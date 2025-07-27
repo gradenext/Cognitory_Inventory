@@ -106,10 +106,12 @@ export const getUserProfile = async () => {
 export const getAllQuestion = async (
   approved = null,
   reviewed = null,
-  role = null
+  role = null,
+  page = 1,
+  limit = 20
 ) => {
   try {
-    let query = [];
+    let query = [""];
     if (approved !== null) {
       query.push(`approved=${approved}`);
     }
@@ -117,7 +119,9 @@ export const getAllQuestion = async (
       query.push(`reviewed=${reviewed}`);
     }
     const response = await api.get(
-      `/question?filterDeleted=${role !== "super"}&${query.join("&")}`
+      `/question?filterDeleted=${
+        role !== "super"
+      }&paginate=true&page=${page}&limit=${limit}${query.join("&")}`
     );
     return response?.data;
   } catch (error) {
@@ -126,13 +130,9 @@ export const getAllQuestion = async (
   }
 };
 
-export const getSingleQuestionForReview = async () => {
+export const getSingleQuestionForReview = async (questionId) => {
   try {
-    const response = await api.get(
-      `/question/unreviewed/single?enterpriseId=${
-        import.meta.env.VITE_ENTERPRISE_ID
-      }`
-    );
+    const response = await api.get(`/question/${questionId}`);
     return response?.data?.data;
   } catch (error) {
     console.log(error);

@@ -22,8 +22,9 @@ import Curriculum from "./components/curriculum/Curriculum";
 import CreatedQuestion from "./components/user/CreatedQuestion";
 import ReviewedQuestion from "./components/user/ReviewedQuestion";
 import Question from "./components/admin/Question";
-import Review from "./components/admin/Review";
 import UserProfile from "./components/user/UserProfile";
+import ReviewQuestion from "./components/admin/ReviewQuestion";
+import Review from "./components/admin/Review";
 
 function App() {
   const token = useSelector((state) => state?.user?.token);
@@ -50,8 +51,9 @@ function App() {
             <Route path="my-profile" element={<MyProfile />} />
             <Route path="user" element={<Users />} />
             <Route path="question/all" element={<Question />} />
-            <Route path="review/:enterpriseId" element={<Review />} />
-            <Route path="question/:questionId" element={<Enterprise />} />
+            <Route path="review/all" element={<Review />} />
+            <Route path="review/:questionId" element={<ReviewQuestion />} />
+            {/* <Route path="question/:questionId" element={<Enterprise />} /> */}
             <Route path="curriculum/:enterpriseId" element={<Enterprise />} />
             <Route
               path="curriculum/:enterpriseId/:classId"
