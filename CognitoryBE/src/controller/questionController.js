@@ -230,11 +230,10 @@ export const getAllQuestions = async (req, res) => {
 
     await verifyModelReferences(refsToCheck);
 
-    const [sortField, sortDirRaw] = sort.split(":");
+    const [sortField = "createdAt", sortDirRaw = "desc"] = sort.split(":");
     const sortOrder = sortDirRaw === "asc" ? 1 : -1;
-    const sortOption = { [sortField || "createdAt"]: sortOrder };
+    const sortOption = { [sortField]: sortOrder };
 
-    // Build aggregation pipeline
     const pipeline = [
       { $match: matchFilter },
       {
@@ -283,17 +282,38 @@ export const getAllQuestions = async (req, res) => {
       pipeline.push({ $match: reviewFilter });
     }
 
-    pipeline.push({ $sort: sortOption });
+    pipeline.push({ $project: { _id: 1 } });
 
-    const countPipeline = [...pipeline, { $count: "total" }];
-    const totalResult = await Question.aggregate(countPipeline);
+    const totalResult = await Question.aggregate([
+      ...pipeline,
+      { $count: "total" },
+    ]);
     const total = totalResult[0]?.total || 0;
 
     if (shouldPaginate) {
       pipeline.push({ $skip: skip }, { $limit: Number(limit) });
     }
 
-    const questions = await Question.aggregate(pipeline);
+    const idResults = await Question.aggregate(pipeline);
+    const questionIds = idResults.map((doc) => doc._id);
+
+    const questions = await Question.find({ _id: { $in: questionIds } }, "-__v")
+      .sort(sortOption)
+      .populate([
+        { path: "enterprise", select: "_id name" },
+        { path: "class", select: "_id name" },
+        { path: "subject", select: "_id name" },
+        { path: "topic", select: "_id name" },
+        { path: "subtopic", select: "_id name" },
+        { path: "level", select: "_id name rank" },
+        { path: "creator", select: "_id name" },
+        {
+          path: "review",
+          select: "-__v",
+          populate: { path: "reviewedBy", select: "_id name" },
+        },
+      ])
+      .exec();
 
     return handleSuccess(
       res,
