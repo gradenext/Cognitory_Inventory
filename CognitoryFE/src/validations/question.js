@@ -53,10 +53,7 @@ export const reviewSchema = z
     approved: z.boolean(),
     editAllowed: z.boolean(),
     comment: z.string().optional(),
-    rating: z.preprocess(
-      (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(0).max(5).optional()
-    ),
+    rating: z.number().min(1).max(5),
   })
   .superRefine((data, ctx) => {
     if (
