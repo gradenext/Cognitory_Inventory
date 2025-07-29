@@ -635,15 +635,26 @@ export const demoteAdmin = async (req, res) => {
 
 export const getUserProfile = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const { role, userId: authUserId } = req.user;
+    let userId;
+
+    if (role === "user") {
+      userId = authUserId;
+    } else {
+      userId = req.params.userId;
+    }
+
+    if (!userId) {
+      return handleError(res, {}, "User ID is required", 400);
+    }
 
     const user = await User.findById(userId, "-questions -password -__v -slug")
       .populate("approvedBy", "name email role")
       .lean();
 
-    if (!user) return handleError(res, {}, "User not found", 404);
-    if (user.role !== "user")
-      return handleError(res, {}, "Protected route for user only", 403);
+    if (!user) {
+      return handleError(res, {}, "User not found", 404);
+    }
 
     // 1. Load full hierarchy
     const [enterprises, classes, subjects, topics, subtopics, levels] =
