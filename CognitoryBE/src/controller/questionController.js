@@ -157,6 +157,7 @@ export const getAllQuestions = async (req, res) => {
       levelId,
       reviewed,
       approved,
+      userId: queryUserId,
       filterDeleted = "true",
       sort = "createdAt:desc",
       page = 1,
@@ -168,8 +169,8 @@ export const getAllQuestions = async (req, res) => {
     const shouldPaginate = paginate === "true";
     const shouldFilterDeleted = filterDeleted === "true";
 
-    let refsToCheck = [];
-    let params = {};
+    const refsToCheck = [];
+    const params = {};
 
     if (enterpriseId) {
       refsToCheck.push({
@@ -200,10 +201,22 @@ export const getAllQuestions = async (req, res) => {
       params.level = levelId;
     }
 
-    const { userId, role } = req.user;
-    if (userId && role === "user") {
-      refsToCheck.push({ model: User, id: userId, key: "User ID" });
-      params.creator = userId;
+    const { userId: authUserId, role } = req.user;
+
+    if (role === "user") {
+      if (queryUserId && queryUserId !== authUserId) {
+        return handleError(
+          res,
+          {},
+          "You are not allowed to access other users' questions data.",
+          403
+        );
+      }
+      refsToCheck.push({ model: User, id: authUserId, key: "User ID" });
+      params.creator = authUserId;
+    } else if (queryUserId) {
+      refsToCheck.push({ model: User, id: queryUserId, key: "User ID" });
+      params.creator = queryUserId;
     }
 
     if (shouldFilterDeleted) {
@@ -254,15 +267,11 @@ export const getAllQuestions = async (req, res) => {
 
     if (approved === "true") {
       questions = questions.filter(
-        (q) =>
-          q.review && q.review.reviewedAt !== null && q.review.approved === true
+        (q) => q.review?.reviewedAt && q.review.approved === true
       );
     } else if (approved === "false") {
       questions = questions.filter(
-        (q) =>
-          !q.review ||
-          q.review.reviewedAt === null ||
-          q.review.approved === false
+        (q) => !q.review || !q.review.reviewedAt || q.review.approved === false
       );
     }
 
