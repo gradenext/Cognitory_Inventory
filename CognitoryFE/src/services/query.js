@@ -72,7 +72,7 @@ export const useQueryObject = ({
     ].includes(pathname);
 
   const questions = useQuery({
-    queryKey: ["questions", approved, reviewed, page],
+    queryKey: ["questions", approved ?? null, reviewed ?? null, page],
     queryFn: () => getAllQuestion(approved, reviewed, role, page),
     enabled: shouldFetchQuestions,
     staleTime: 5 * 60 * 1000, // 5 minutes

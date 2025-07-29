@@ -1,27 +1,27 @@
 import toast from "react-hot-toast";
 
 const successToast = (msg) => {
-	toast.success(msg, {
-		duration: 4000,
-		icon: "✅",
-		style: {
-			borderRadius: "50px",
-			background: "#000",
-			color: "#fff",
-		},
-	});
+  toast.success(msg, {
+    duration: 4000,
+    icon: "✅",
+    style: {
+      borderRadius: "50px",
+      background: "#000",
+      color: "#fff",
+    },
+  });
 };
 
 const errorToast = (msg) => {
-	toast.error(msg, {
-		duration: 4000,
-		icon: "❌",
-		style: {
-			borderRadius: "50px",
-			background: "#000",
-			color: "#fff",
-		},
-	});
+  toast.error(msg, {
+    duration: 4000,
+    icon: "❌",
+    style: {
+      borderRadius: "50px",
+      background: "#000",
+      color: "#fff",
+    },
+  });
 };
 
 const infoToast = (msg) => {
@@ -43,37 +43,37 @@ const infoToast = (msg) => {
 };
 
 const warningToast = (msg) => {
-	toast.error(msg, {
-		duration: 4000,
-		icon: "⚠️",
-		style: {
-			borderRadius: "50px",
-			background: "#000",
-			color: "#fff",
-		},
-	});
+  toast.error(msg, {
+    duration: 4000,
+    icon: "⚠️",
+    style: {
+      borderRadius: "50px",
+      background: "#000",
+      color: "#fff",
+    },
+  });
 };
 const loadingToast = (() => {
-	let toastId = null;
+  let toastId = null;
 
-	return (isLoading, msg = "Loading...") => {
-		if (isLoading) {
-			if (toastId) toast.dismiss(toastId);
+  return (isLoading, msg = "Loading...") => {
+    if (isLoading) {
+      if (toastId) toast.dismiss(toastId);
 
-			toastId = toast.loading(msg, {
-				style: {
-					borderRadius: "50px",
-					background: "#000",
-					color: "#fff",
-				},
-			});
-		} else {
-			if (toastId) {
-				toast.dismiss(toastId);
-				toastId = null;
-			}
-		}
-	};
+      toastId = toast.loading(msg, {
+        style: {
+          borderRadius: "50px",
+          background: "#000",
+          color: "#fff",
+        },
+      });
+    } else {
+      if (toastId) {
+        toast.dismiss(toastId);
+        toastId = null;
+      }
+    }
+  };
 })();
 
 export { successToast, errorToast, infoToast, warningToast, loadingToast };

@@ -1,5 +1,5 @@
-import toast from "react-hot-toast";
 import { api } from "./api";
+import { errorToast } from "../components/toast/Toast";
 
 export const getEnterprise = async (role = null) => {
   try {
@@ -10,7 +10,7 @@ export const getEnterprise = async (role = null) => {
     return response?.data?.data;
   } catch (error) {
     console.log(error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     return [];
   }
 };
@@ -24,7 +24,7 @@ export const getClasses = async (enterpriseId, role = null) => {
     return response?.data?.data;
   } catch (error) {
     console.log(error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     return [];
   }
 };
@@ -37,7 +37,7 @@ export const getSubjects = async (classId, role = null) => {
     return response?.data?.data;
   } catch (error) {
     console.log(error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     return [];
   }
 };
@@ -50,7 +50,7 @@ export const getTopics = async (subjectId, role = null) => {
     return response?.data?.data;
   } catch (error) {
     console.log(error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     return [];
   }
 };
@@ -63,7 +63,7 @@ export const getSubtopics = async (topicId, role = null) => {
     return response?.data?.data;
   } catch (error) {
     console.log(error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     return [];
   }
 };
@@ -76,7 +76,7 @@ export const getLevels = async (subtopicId, role = null) => {
     return response?.data?.data;
   } catch (error) {
     console.log(error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     return [];
   }
 };
@@ -87,7 +87,7 @@ export const getAllUsers = async () => {
     return response?.data?.users;
   } catch (error) {
     console.log(error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     return [];
   }
 };
@@ -98,7 +98,7 @@ export const getUserProfile = async () => {
     return response?.data?.data;
   } catch (error) {
     console.log(error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     return [];
   }
 };

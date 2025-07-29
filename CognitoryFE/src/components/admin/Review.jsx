@@ -1,25 +1,33 @@
 import { Loader2 } from "lucide-react";
 import { useQueryObject } from "../../services/query";
 import QuestionCard from "../shared/QuestionCard";
+import Pagination from "../shared/Pagination";
 
 const Review = () => {
   // Fetch paginated questions
-  const { questions, questionsQuery } = useQueryObject({
+  const { questions, questionsQuery, setPage } = useQueryObject({
     reviewed: false,
   });
 
   const isLoading = questionsQuery?.isLoading;
-  const total = questions?.data?.total || 0;
+  const total = questions?.data?.total ?? "-";
   const list = questions?.data?.questions || [];
 
   return (
     <div className="w-full px-6 py-8 space-y-6">
       {/* Heading */}
-      <div className="flex items-center justify-between border-b border-white/20 pb-4">
-        <h2 className="text-2xl font-semibold text-white">
-          Reviewed Questions
-        </h2>
-        <span className="text-sm text-white/60">Total: {total}</span>
+      <div className="flex w-full flex-col items-center justify-between border-b border-white/20 pb-4">
+        <div className="flex items-center justify-between pb-4 w-full">
+          <h2 className="text-2xl font-semibold text-white">
+            Review Questions
+          </h2>
+          <span className="text-sm text-white/60">Total: {total}</span>
+        </div>
+
+        <Pagination
+          data={questions?.data}
+          onPageChange={(newPage) => setPage(newPage)}
+        />
       </div>
 
       {/* Conditional Content */}

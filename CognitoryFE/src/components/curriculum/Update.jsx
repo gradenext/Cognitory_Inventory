@@ -22,6 +22,7 @@ import {
 import { useParams } from "react-router-dom";
 import { useQueryObject } from "../../services/query";
 import { Loader2, Pencil } from "lucide-react";
+import { errorToast, successToast } from "../toast/Toast";
 
 const rankOptions = Array.from({ length: 5 }, (_, i) => ({
   label: `Rank ${i + 1}`,
@@ -114,7 +115,7 @@ const Update = ({ id, type }) => {
       setEmail(entity?.data?.email || "");
       setRank(entity?.data?.rank || null);
     } catch (err) {
-      toast.error("Failed to load entity");
+      errorToast("Failed to load entity");
       setIsOpen(false);
     } finally {
       setFetching(false);
@@ -140,13 +141,13 @@ const Update = ({ id, type }) => {
       if (type === "level") payload.rank = rank;
 
       const res = await update(id, payload);
-      toast.success(res?.message || "Updated");
+      successToast(res?.message || "Updated");
 
       refetchQuery(type);
       setIsOpen(false);
     } catch (err) {
       const msg = err?.response?.data?.message || "Update failed";
-      toast.error(msg);
+      errorToast(msg);
     } finally {
       setLoading(false);
     }

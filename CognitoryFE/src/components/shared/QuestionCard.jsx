@@ -6,6 +6,7 @@ import { toast } from "react-hot-toast";
 import Modal from "./Modal";
 import { useQueryObject } from "../../services/query";
 import { useNavigate } from "react-router-dom";
+import { errorToast, successToast } from "../toast/Toast";
 
 const Chip = ({ label, color }) => (
   <span
@@ -55,11 +56,11 @@ const QuestionCard = ({
     try {
       setLoading(true);
       await deleteQuestion(question?._id);
-      toast.success("Question deleted succesfully");
+      successToast("Question deleted succesfully");
       setShowDelete(false);
       await questionsQuery.refetch();
     } catch (error) {
-      toast.error(error?.response?.data?.message || error?.message);
+      errorToast(error?.response?.data?.message || error?.message);
     } finally {
       setLoading(false);
     }
@@ -97,100 +98,99 @@ const QuestionCard = ({
   return (
     <div className="w-full mx-auto my-6 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-lg shadow-lg text-white transition-all overflow-hidden">
       {/* Accordion Header */}
-      <div
-        onClick={toggleOpen}
-        className="flex items-center justify-between gap-4 p-6 cursor-pointer hover:bg-white/5 transition-all"
-      >
-        <div className="flex-1 space-y-2 overflow-hidden">
-          <div className="flex flex-wrap gap-2">
-            {enterprise?.name && <Chip label={`${enterprise.name}`} />}
-            {classObj?.name && (
-              <Chip label={`${classObj.name}`} color="bg-indigo-500/20" />
-            )}
-            {subject?.name && (
-              <Chip label={`${subject.name}`} color="bg-blue-500/20" />
-            )}
-            {topic?.name && (
-              <Chip label={`${topic.name}`} color="bg-purple-500/20" />
-            )}
-            {subtopic?.name && (
-              <Chip label={`${subtopic.name}`} color="bg-pink-500/20" />
-            )}
-            {level?.name && (
+      <div onClick={toggleOpen} className=" px-6">
+        <div className="flex items-center justify-between gap-4 py-6 cursor-pointer hover:bg-white/5 transition-all">
+          <div className="flex-1 space-y-2 overflow-hidden">
+            <div className="flex flex-wrap gap-2">
+              {enterprise?.name && <Chip label={`${enterprise.name}`} />}
+              {classObj?.name && (
+                <Chip label={`${classObj.name}`} color="bg-indigo-500/20" />
+              )}
+              {subject?.name && (
+                <Chip label={`${subject.name}`} color="bg-blue-500/20" />
+              )}
+              {topic?.name && (
+                <Chip label={`${topic.name}`} color="bg-purple-500/20" />
+              )}
+              {subtopic?.name && (
+                <Chip label={`${subtopic.name}`} color="bg-pink-500/20" />
+              )}
+              {level?.name && (
+                <Chip
+                  label={`Level: ${level.rank}-${level.name}`}
+                  color="bg-teal-500/20"
+                />
+              )}
               <Chip
-                label={`Level: ${level.rank}-${level.name}`}
-                color="bg-teal-500/20"
-              />
-            )}
-            <Chip
-              label={review?.reviewedAt ? "Reviewed" : "Not Reviewed"}
-              color={review?.reviewedAt ? "bg-green-500/20" : "bg-red-500/20"}
-            />
-            {review?.reviewedAt && (
-              <Chip
-                label={review?.reviewedAt ? "Aprroved" : "Not Approved"}
+                label={review?.reviewedAt ? "Reviewed" : "Not Reviewed"}
                 color={review?.reviewedAt ? "bg-green-500/20" : "bg-red-500/20"}
               />
-            )}
+              {review?.reviewedAt && (
+                <Chip
+                  label={review?.reviewedAt ? "Aprroved" : "Not Approved"}
+                  color={
+                    review?.reviewedAt ? "bg-green-500/20" : "bg-red-500/20"
+                  }
+                />
+              )}
 
-            {review?.editAllowed && (
-              <Chip label={"Editable"} color={"bg-green-500/20"} />
-            )}
+              {review?.editAllowed && (
+                <Chip label={"Editable"} color={"bg-green-500/20"} />
+              )}
 
-            <Chip
-              label={`Images: ${image?.files?.length}`}
-              color={"bg-green-500/20"}
-            />
+              <Chip
+                label={`Images: ${image?.files?.length}`}
+                color={"bg-green-500/20"}
+              />
+            </div>
           </div>
 
-          <h3
-            className={`text-base font-semibold leading-snug text-white/90 transition-all duration-300 ease-in-out ${
-              isOpen
-                ? "opacity-0 h-0 pointer-events-none"
-                : "opacity-100 h-auto line-clamp-2"
-            }`}
-          >
-            {text}
-          </h3>
+          <div className="flex gap-x-2 justify-center items-center">
+            {shouldDelete && !deletedAt && role !== "user" && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDelete(true);
+                }}
+                className="bg-red-900 p-2 rounded-lg cursor-pointer"
+              >
+                <Trash className="h-4 w-4" />
+              </button>
+            )}
+            {shouldReview &&
+              (!review?.reviewedAt || review?.reviewable) &&
+              role !== "user" && (
+                <button
+                  onClick={() => {
+                    navigate(`/admin/review/${question?._id}`);
+                  }}
+                  className="bg-white p-2 rounded-lg cursor-pointer"
+                >
+                  <CheckCircle className="h-4 w-4 text-black" />
+                </button>
+              )}
+
+            {shouldClose && (
+              <ChevronDown
+                size={20}
+                className={`transform transition-transform duration-100 ${
+                  isOpen ? "rotate-180" : "rotate-0"
+                }`}
+              />
+            )}
+          </div>
         </div>
 
-        {shouldDelete && !deletedAt && role !== "user" && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowDelete(true);
-            }}
-            className="bg-red-900 p-2 rounded-lg cursor-pointer"
-          >
-            <Trash className="h-4 w-4" />
-          </button>
-        )}
-        {shouldReview &&
-          (!review?.reviewedAt || review?.reviewable) &&
-          role !== "user" && (
-            <button
-              onClick={() => {
-                navigate(`/admin/review/${question?._id}`);
-              }}
-              className="bg-white p-2 rounded-lg cursor-pointer"
-            >
-              <CheckCircle className="h-4 w-4 text-black" />
-            </button>
-          )}
-
-        {shouldClose && (
-          <ChevronDown
-            size={20}
-            className={`transform transition-transform duration-100 ${
-              isOpen ? "rotate-180" : "rotate-0"
-            }`}
-          />
-        )}
+        <h3
+          className={`text-base py-6 font-semibold leading-snug text-white/90 transition-all duration-300 ease-in-out border-y border-white/10`}
+        >
+          {text}
+        </h3>
       </div>
 
       {/* Accordion Body */}
       <div
-        className={`transition-all duration-300 ease-in-out overflow-hidden border-t border-white/10 ${
+        className={`transition-all duration-300 ease-in-out overflow-hidden  ${
           isOpen ? "max-h-screen" : "max-h-0"
         }`}
       >

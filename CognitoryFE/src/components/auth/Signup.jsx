@@ -3,9 +3,10 @@ import Input from "../shared/Input";
 import { Link, useNavigate } from "react-router-dom";
 import { validateWithZod } from "../../validations/validate";
 import { signupSchema } from "../../validations/auth";
-import toast from "react-hot-toast";
+
 import { signup } from "../../services/auth";
 import { Loader2 } from "lucide-react";
+import { errorToast, successToast } from "../toast/Toast";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -44,7 +45,7 @@ const Signup = () => {
       if (!validationResult?.success) {
         console.log(validationResult.errors);
         setErrors(validationResult.errors);
-        toast.error("Check all required fields");
+        errorToast("Check all required fields");
         return;
       }
 
@@ -56,7 +57,7 @@ const Signup = () => {
         confirmPassword: form?.confirmPassword,
       });
 
-      toast.success(response.message);
+      successToast(response.message);
 
       setForm({
         name: "",
@@ -66,7 +67,7 @@ const Signup = () => {
       });
       navigate("/login");
     } catch (error) {
-      toast.error(error.response.data.message);
+      errorToast(error.response.data.message);
     } finally {
       setLoading(false);
     }

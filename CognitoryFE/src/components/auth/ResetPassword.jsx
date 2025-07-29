@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import Input from "../shared/Input";
 import { Link, useParams } from "react-router-dom";
 import { AtSign, Loader2, LogIn } from "lucide-react";
-import toast from "react-hot-toast";
+
 import { validateWithZod } from "../../validations/validate";
 import { z } from "zod";
 import { resetPassword } from "../../services/auth";
 import { resetPasswordSchema } from "../../validations/auth";
+import { errorToast, successToast } from "../toast/Toast";
 
 const ResetPassword = () => {
   const { token } = useParams();
@@ -42,7 +43,7 @@ const ResetPassword = () => {
       });
       if (!validationResult?.success) {
         setErrors(validationResult.errors);
-        toast.error("Check all required fields");
+        errorToast("Check all required fields");
         return;
       }
 
@@ -51,14 +52,14 @@ const ResetPassword = () => {
         confirmPassword: form?.confirmPassword,
       });
 
-      toast.success(response.message);
+      successToast(response.message);
 
       setForm({
         password: "",
         confirmPassword: "",
       });
     } catch (error) {
-      toast.error(error.response.data.message);
+      errorToast(error.response.data.message);
     } finally {
       setLoading(false);
     }

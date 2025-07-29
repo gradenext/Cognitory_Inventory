@@ -5,6 +5,7 @@ import UserCard from "../shared/UserCard";
 import { demoteAdmin, promoteUser, toggleApprove } from "../../services/auth";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { errorToast, successToast } from "../toast/Toast";
 
 const Users = () => {
   const [actionInProgress, setActionInProgress] = useState(false);
@@ -26,10 +27,10 @@ const Users = () => {
       setActiveUserId(userId);
       setActiveAction("approve");
       const response = await toggleApprove(userId);
-      toast.success(response?.message);
+      successToast(response?.message);
       await users.refetch();
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Approval failed");
+      errorToast(error?.response?.data?.message || "Approval failed");
     } finally {
       setActionInProgress(false);
       setActiveUserId(null);
@@ -44,10 +45,10 @@ const Users = () => {
       setActiveAction("role");
       const caller = isAdmin ? demoteAdmin : promoteUser;
       const response = await caller(userId);
-      toast.success(response?.message);
+      successToast(response?.message);
       await users.refetch();
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Role update failed");
+      errorToast(error?.response?.data?.message || "Role update failed");
     } finally {
       setActionInProgress(false);
       setActiveUserId(null);

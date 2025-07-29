@@ -3,14 +3,21 @@ import { validateWithZod } from "../../validations/validate";
 import { getSingleQuestionForReview } from "../../services/getAPIs";
 import ToggleSwitch from "../shared/ToogleSwitch";
 import Input from "../shared/Input";
-import toast from "react-hot-toast";
+
 import QuestionCard from "../shared/QuestionCard";
 import { reviewSchema } from "../../validations/question";
 import { Loader2 } from "lucide-react";
 import { reviewQuestion } from "../../services/createAPIs";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQueryObject } from "../../services/query";
+import { useQueryClient } from "@tanstack/react-query";
+import { errorToast, successToast } from "../toast/Toast";
 
 const ReviewQuestion = () => {
+  const queryClient = useQueryClient();
+  const { page } = useQueryObject({
+    reviewed: false,
+  });
   const { questionId } = useParams();
   const navigate = useNavigate();
   const [question, setQuestion] = useState(null);
@@ -18,7 +25,7 @@ const ReviewQuestion = () => {
     approved: false,
     editAllowed: false,
     comment: "",
-    rating: "",
+    rating: 0,
   });
   const [error, setError] = useState({});
   const [loading, setLoading] = useState(false);
@@ -32,7 +39,7 @@ const ReviewQuestion = () => {
         const res = await getSingleQuestionForReview(questionId);
         setQuestion(res);
       } catch (err) {
-        toast.error(
+        errorToast(
           err?.response?.data?.message ||
             err?.message ||
             "Failed to fetch question."
@@ -56,23 +63,25 @@ const ReviewQuestion = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError({});
-    const payload = { ...form };
+    const payload = { ...form, rating: Number(form?.rating) };
 
     const result = validateWithZod(reviewSchema, payload);
     if (!result.success) {
-      console.log(result.errors);
       setError(result.errors);
-      toast.error("Please check all fields");
+      errorToast("Please check all fields");
       return;
     }
 
     try {
       setLoading(true);
       await reviewQuestion(question?._id, payload);
-      toast.success("Review submitted!");
+      successToast("Review submitted!");
+      await queryClient.invalidateQueries({
+        queryKey: ["questions", null, false, page],
+      });
       navigate("/admin/review/all");
     } catch (err) {
-      toast.error(
+      errorToast(
         err?.response?.data?.message ||
           err?.message ||
           "Failed to submit review."
@@ -88,8 +97,6 @@ const ReviewQuestion = () => {
         <Loader2 size={40} className="animate-spin" />
       </div>
     );
-
-    console.log(question)
 
   if (!questionLoading && !question)
     return (

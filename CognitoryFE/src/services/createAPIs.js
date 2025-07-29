@@ -1,5 +1,5 @@
-import toast from "react-hot-toast";
 import { api } from "./api";
+import { errorToast } from "../components/toast/Toast";
 
 export const upload = async (filesArray) => {
   try {
@@ -46,7 +46,7 @@ export const createEnterprise = async (data) => {
     return response?.data;
   } catch (error) {
     console.error("Upload error:", error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     throw error;
   }
 };
@@ -57,7 +57,7 @@ export const createClass = async (data) => {
     return response?.data;
   } catch (error) {
     console.error("Upload error:", error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     throw error;
   }
 };
@@ -68,7 +68,7 @@ export const createSubject = async (data) => {
     return response?.data;
   } catch (error) {
     console.error("Upload error:", error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     throw error;
   }
 };
@@ -79,7 +79,7 @@ export const createTopic = async (data) => {
     return response?.data;
   } catch (error) {
     console.error("Upload error:", error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     throw error;
   }
 };
@@ -90,7 +90,7 @@ export const createSubtopic = async (data) => {
     return response?.data;
   } catch (error) {
     console.error("Upload error:", error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     throw error;
   }
 };
@@ -101,7 +101,7 @@ export const createLevel = async (data) => {
     return response?.data;
   } catch (error) {
     console.error("Upload error:", error);
-    toast.error(error.response?.data?.message);
+    errorToast(error.response?.data?.message);
     throw error;
   }
 };

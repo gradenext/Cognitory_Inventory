@@ -42,16 +42,15 @@ User -
 Admin -
     User Profile
         - user data
-        - total questions reviewed count
     Users
         - view all users except super ----
         - avg rating of each user. ----
         - approve/unapprove user ----
         - promote/demote user ----
         - View all question created by user
+        - See user profile.
     Questions
         - Questions created so far(no filter). ----
-        - Questions created by userId.
         - reviewed questions.
         - Update review
         - Approved/Unapproved.

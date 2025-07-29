@@ -15,6 +15,7 @@ import Select from "../shared/Select";
 import { useQueryObject } from "../../services/query";
 import { useSelector } from "react-redux";
 import { Loader2 } from "lucide-react";
+import { errorToast, successToast } from "../toast/Toast";
 
 const rankOptions = Array.from({ length: 5 }, (_, i) => ({
   label: `Rank ${i + 1}`,
@@ -91,7 +92,7 @@ const Add = ({ type }) => {
   const onSubmit = async (e) => {
     e.preventDefault();
     if (role !== "super" && type === "enterprise") {
-      toast.error("Reserver for super admin");
+      errorToast("Reserver for super admin");
       setOpen(false);
       return;
     }
@@ -129,13 +130,13 @@ const Add = ({ type }) => {
         topicId,
         subtopicId,
       });
-      toast.success(res?.message || `${type} created`);
+      successToast(res?.message || `${type} created`);
       setOpen(false);
       setName("");
       setRank(null);
     } catch (err) {
       const msg = err?.response?.data?.message || "Something went wrong";
-      toast.error(msg);
+      errorToast(msg);
     } finally {
       setLoading(false);
     }

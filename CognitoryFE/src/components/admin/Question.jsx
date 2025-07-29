@@ -1,11 +1,12 @@
 import { Loader2 } from "lucide-react";
 import { useQueryObject } from "../../services/query";
 import QuestionCard from "../shared/QuestionCard";
+import Pagination from "../shared/Pagination";
 
 const Question = () => {
-  const { questions, questionsQuery, page, setPage } = useQueryObject({});
+  const { questions, questionsQuery, setPage } = useQueryObject({});
   const isLoading = questionsQuery?.isLoading;
-  const total = questions?.data?.total || 0;
+  const total = questions?.data?.total ?? "-";
   const list = questions?.data?.questions || [];
 
   return (
@@ -18,6 +19,11 @@ const Question = () => {
           </h2>
           <span className="text-sm text-white/60">Total: {total}</span>
         </div>
+
+        <Pagination
+          data={questions?.data}
+          onPageChange={(newPage) => setPage(newPage)}
+        />
       </div>
 
       {/* Conditional Rendering */}

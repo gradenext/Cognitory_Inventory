@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import Input from "../shared/Input";
 import { Link } from "react-router-dom";
 import { AtSign, Loader2, LogIn } from "lucide-react";
-import toast from "react-hot-toast";
+
 import { forgotPassword } from "../../services/auth";
 import { validateWithZod } from "../../validations/validate";
 import { z } from "zod";
+import { errorToast, successToast } from "../toast/Toast";
 
 const ForgetPassword = () => {
   const [form, setForm] = useState({
@@ -39,20 +40,20 @@ const ForgetPassword = () => {
       );
       if (!validationResult?.success) {
         setErrors(validationResult.errors);
-        toast.error("Check all required fields");
+        errorToast("Check all required fields");
         return;
       }
 
       const response = await forgotPassword(form?.email);
 
-      toast.success(response.message);
+      successToast(response.message);
 
       setForm({
         email: "",
       });
     } catch (error) {
       console.log(error);
-      toast.error(error.response.data.message);
+      errorToast(error.response.data.message);
     } finally {
       setLoading(false);
     }

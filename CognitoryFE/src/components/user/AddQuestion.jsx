@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { useParams } from "react-router-dom";
-import toast from "react-hot-toast";
+
 import { Loader2 } from "lucide-react";
 
 import { addQuestionSchema } from "../../validations/question";
@@ -14,6 +14,7 @@ import Select from "../shared/Select";
 
 import FileUpload from "../shared/FileUpload";
 import PreviewModal from "../shared/PreviewModal";
+import { errorToast, successToast } from "../toast/Toast";
 
 const AddQuestion = () => {
   const { enterpriseId } = useParams();
@@ -119,7 +120,7 @@ const AddQuestion = () => {
 
     if (!validationResult?.success) {
       setError(validationResult.errors);
-      toast.error("Check all required fields");
+      errorToast("Check all required fields");
       return;
     }
 
@@ -140,7 +141,7 @@ const AddQuestion = () => {
       };
 
       const response = await createQuestion(payload);
-      toast.success(response?.message || "Question created");
+      successToast(response?.message || "Question created");
 
       setForm((prev) => ({
         ...prev,
@@ -154,7 +155,7 @@ const AddQuestion = () => {
         explanation: "",
       }));
     } catch (err) {
-      toast.error(
+      errorToast(
         err?.response?.data?.message || err.message || "Something went wrong"
       );
     } finally {

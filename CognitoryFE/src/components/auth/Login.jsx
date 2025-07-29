@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import Input from "../shared/Input";
 import { Link, useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+
 import { validateWithZod } from "../../validations/validate";
 import { userLogin } from "../../validations/auth";
 import { login } from "../../services/auth";
 import { useDispatch } from "react-redux";
 import { setToken, setUser } from "../../redux/slice/userSlice";
 import { Loader2 } from "lucide-react";
+import { errorToast, successToast } from "../toast/Toast";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -40,7 +41,7 @@ const Login = () => {
       if (!validationResult?.success) {
         console.log(validationResult.errors);
         setErrors(validationResult.errors);
-        toast.error("Check all required fields");
+        errorToast("Check all required fields");
         return;
       }
 
@@ -50,7 +51,7 @@ const Login = () => {
         password: form?.password,
       });
 
-      toast.success(response.message);
+      successToast(response.message);
 
       setForm({
         email: "",
@@ -61,10 +62,14 @@ const Login = () => {
       dispatch(setUser(response?.data?.user));
       const role = response?.data?.user?.role;
       navigate(
-        role === "admin" ? "/admin/my-profile" : role === "super" ? "/super/my-profile" : "/user/my-profile"
+        role === "admin"
+          ? "/admin/my-profile"
+          : role === "super"
+          ? "/super/my-profile"
+          : "/user/my-profile"
       );
     } catch (error) {
-      toast.error(error.response.data.message);
+      errorToast(error.response.data.message);
     } finally {
       setLoading(false);
     }
