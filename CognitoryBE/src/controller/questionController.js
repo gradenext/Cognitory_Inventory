@@ -170,7 +170,7 @@ export const getAllQuestions = async (req, res) => {
     const shouldFilterDeleted = filterDeleted === "true";
 
     const refsToCheck = [];
-    const params = {};
+    const matchFilter = {};
 
     if (enterpriseId) {
       refsToCheck.push({
@@ -178,27 +178,27 @@ export const getAllQuestions = async (req, res) => {
         id: enterpriseId,
         key: "Enterprise ID",
       });
-      params.enterprise = enterpriseId;
+      matchFilter.enterprise = enterpriseId;
     }
     if (classId) {
       refsToCheck.push({ model: Class, id: classId, key: "Class ID" });
-      params.class = classId;
+      matchFilter.class = classId;
     }
     if (subjectId) {
       refsToCheck.push({ model: Subject, id: subjectId, key: "Subject ID" });
-      params.subject = subjectId;
+      matchFilter.subject = subjectId;
     }
     if (topicId) {
       refsToCheck.push({ model: Topic, id: topicId, key: "Topic ID" });
-      params.topic = topicId;
+      matchFilter.topic = topicId;
     }
     if (subtopicId) {
       refsToCheck.push({ model: Subtopic, id: subtopicId, key: "Subtopic ID" });
-      params.subtopic = subtopicId;
+      matchFilter.subtopic = subtopicId;
     }
     if (levelId) {
       refsToCheck.push({ model: Level, id: levelId, key: "Level ID" });
-      params.level = levelId;
+      matchFilter.level = levelId;
     }
 
     const { userId: authUserId, role } = req.user;
@@ -213,14 +213,14 @@ export const getAllQuestions = async (req, res) => {
         );
       }
       refsToCheck.push({ model: User, id: authUserId, key: "User ID" });
-      params.creator = authUserId;
+      matchFilter.creator = authUserId;
     } else if (queryUserId) {
       refsToCheck.push({ model: User, id: queryUserId, key: "User ID" });
-      params.creator = queryUserId;
+      matchFilter.creator = queryUserId;
     }
 
     if (shouldFilterDeleted) {
-      params.deletedAt = null;
+      matchFilter.deletedAt = null;
     }
 
     const invalidIds = isValidMongoId(refsToCheck);
@@ -230,57 +230,70 @@ export const getAllQuestions = async (req, res) => {
 
     await verifyModelReferences(refsToCheck);
 
-    // Parse sort
-    const [sortField, sortDirectionRaw] = sort.split(":");
-    const sortOrder = sortDirectionRaw === "asc" ? 1 : -1;
+    const [sortField, sortDirRaw] = sort.split(":");
+    const sortOrder = sortDirRaw === "asc" ? 1 : -1;
     const sortOption = { [sortField || "createdAt"]: sortOrder };
 
-    // Fetch all questions first
-    let questions = await Question.find(params, "-__v")
-      .sort(sortOption)
-      .populate([
-        { path: "enterprise", select: "_id name" },
-        { path: "class", select: "_id name" },
-        { path: "subject", select: "_id name" },
-        { path: "topic", select: "_id name" },
-        { path: "subtopic", select: "_id name" },
-        { path: "level", select: "_id name rank" },
-        { path: "creator", select: "_id name" },
-        {
-          path: "review",
-          select: "-__v",
-          populate: { path: "reviewedBy", select: "_id name" },
+    // Build aggregation pipeline
+    const pipeline = [
+      { $match: matchFilter },
+      {
+        $lookup: {
+          from: "reviews",
+          localField: "_id",
+          foreignField: "question",
+          as: "review",
         },
-      ])
-      .exec();
+      },
+      { $unwind: { path: "$review", preserveNullAndEmptyArrays: true } },
+    ];
 
-    // Filter by review.reviewedAt AFTER population
+    const reviewFilter = {};
+
     if (reviewed === "true") {
-      questions = questions.filter(
-        (q) => q.review && q.review.reviewedAt !== null && !q.review.reviewable
-      );
+      Object.assign(reviewFilter, {
+        "review.reviewedAt": { $ne: null },
+        "review.reviewable": { $ne: true },
+      });
     } else if (reviewed === "false") {
-      questions = questions.filter(
-        (q) => !q.review || q.review.reviewedAt === null || q.review.reviewable
-      );
+      Object.assign(reviewFilter, {
+        $or: [
+          { "review.reviewedAt": null },
+          { "review.reviewable": true },
+          { review: { $exists: false } },
+        ],
+      });
     }
 
     if (approved === "true") {
-      questions = questions.filter(
-        (q) => q.review?.reviewedAt && q.review.approved === true
-      );
+      Object.assign(reviewFilter, {
+        "review.reviewedAt": { $ne: null },
+        "review.reviewable": { $ne: true },
+        "review.approved": true,
+      });
     } else if (approved === "false") {
-      questions = questions.filter(
-        (q) => !q.review || !q.review.reviewedAt || q.review.approved === false
-      );
+      Object.assign(reviewFilter, {
+        "review.reviewedAt": { $ne: null },
+        "review.reviewable": { $ne: true },
+        "review.approved": false,
+      });
     }
 
-    const total = questions.length;
+    if (Object.keys(reviewFilter).length > 0) {
+      pipeline.push({ $match: reviewFilter });
+    }
 
-    // Apply pagination
+    pipeline.push({ $sort: sortOption });
+
+    const countPipeline = [...pipeline, { $count: "total" }];
+    const totalResult = await Question.aggregate(countPipeline);
+    const total = totalResult[0]?.total || 0;
+
     if (shouldPaginate) {
-      questions = questions.slice(skip, skip + Number(limit));
+      pipeline.push({ $skip: skip }, { $limit: Number(limit) });
     }
+
+    const questions = await Question.aggregate(pipeline);
 
     return handleSuccess(
       res,
