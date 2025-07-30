@@ -11,11 +11,13 @@ const metricKeys = [
 ];
 
 const StickyMetricHeader = () => (
-  <div className="sticky top-0 z-10 bg-white/10 backdrop-blur border-b border-white/10">
-    <div className="grid grid-cols-[minmax(250px,1fr)_repeat(6,80px)] px-2 py-2 text-white/60 text-[10px] sm:text-xs font-semibold">
-      <span className="truncate">Entity</span>
+  <div className="sticky top-0 z-10 px-2 py-2 bg-white backdrop-blur border-b border-white/10 flex justify-between items-center min-w-[800px]">
+    <span className="truncate " title="Entity">
+      Entity
+    </span>
+    <div className="grid grid-cols-[repeat(6,minmax(100px,120px))] text-black text-[10px] sm:text-xs font-semibold ">
       {metricKeys.map(({ label }) => (
-        <span key={label} className="text-right truncate">
+        <span key={label} className="text-center truncate pr-2" title={label}>
           {label}
         </span>
       ))}
@@ -29,30 +31,35 @@ const TreeRow = ({ title, metrics, level = 0, children }) => {
   return (
     <>
       <div
-        className="grid grid-cols-[minmax(250px,1fr)_repeat(6,80px)] px-2 py-2 text-white hover:bg-white/5 transition cursor-pointer"
+        className="flex justify-between px-2 py-2 text-white hover:bg-white/5 transition cursor-pointer min-w-[800px]"
         onClick={() => children && setOpen(!open)}
       >
         {/* Title column with indentation */}
-        <div className="flex items-center text-sm sm:text-base font-medium">
+        <div className="flex items-center text-xs sm:text-sm font-medium">
           <div
             style={{ paddingLeft: `${level * 1.25}rem` }}
             className="flex items-center gap-1 truncate"
           >
             {children &&
-              (open ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
-            <span>{title}</span>
+              (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+            <span className="truncate" title={title}>
+              {title}
+            </span>
           </div>
         </div>
 
         {/* Metrics aligned with header */}
-        {metricKeys.map(({ key }) => (
-          <div
-            key={key}
-            className="text-right text-white text-[10px] sm:text-xs font-semibold truncate"
-          >
-            {metrics?.[key] ?? 0}
-          </div>
-        ))}
+        <div className="grid grid-cols-[repeat(6,minmax(100px,120px))]">
+          {metricKeys.map(({ key }) => (
+            <div
+              key={key}
+              className="text-center text-white  text-[10px] sm:text-xs font-semibold truncate pr-2"
+              title={metrics?.[key] ?? 0}
+            >
+              {metrics?.[key] ?? 0}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Child rows */}
@@ -123,11 +130,11 @@ const renderBreakdownTree = (data, level = 0) =>
 const Metric = ({ data }) => {
   return (
     <div className="space-y-4">
-      <h3 className="text-white text-xl font-semibold">
+      <h3 className="text-white text-lg sm:text-xl font-semibold">
         Interaction Breakdown
       </h3>
       <div className="rounded-lg border border-white/10 bg-white/5 overflow-x-auto max-h-[75vh]">
-        <div className="min-w-[700px]">
+        <div className="min-w-[800px]">
           <StickyMetricHeader />
           <div className="divide-y divide-white/10">
             {renderBreakdownTree(data)}

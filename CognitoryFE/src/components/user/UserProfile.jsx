@@ -40,7 +40,7 @@ const UserProfilePage = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10 space-y-10">
+    <div className=" mx-auto px-8 py-10 space-y-10">
       {/* Profile Info */}
       <div className="bg-white/5 border border-white/20 rounded-xl shadow">
         <div className="p-6 space-y-4">
