@@ -99,7 +99,7 @@ const QuestionCard = ({
     <div className="w-full mx-auto my-6 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-lg shadow-lg text-white transition-all overflow-hidden">
       {/* Accordion Header */}
       <div onClick={toggleOpen} className=" px-6">
-        <div className="flex items-center justify-between gap-4 py-6 cursor-pointer hover:bg-white/5 transition-all">
+        <div className="flex items-center justify-between gap-4 py-6 cursor-pointer">
           <div className="flex-1 space-y-2 overflow-hidden">
             <div className="flex flex-wrap gap-2">
               {enterprise?.name && <Chip label={`${enterprise.name}`} />}
@@ -171,12 +171,14 @@ const QuestionCard = ({
               )}
 
             {shouldClose && (
-              <ChevronDown
-                size={20}
-                className={`transform transition-transform duration-100 ${
-                  isOpen ? "rotate-180" : "rotate-0"
-                }`}
-              />
+              <div className="hover:bg-white/20 flex justify-center items-center p-2 rounded-lg">
+                <ChevronDown
+                  size={20}
+                  className={`transform transition-transform duration-100  ${
+                    isOpen ? "rotate-180" : "rotate-0"
+                  }`}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -215,7 +217,7 @@ const QuestionCard = ({
           <div className="flex flex-col justify-center items-center">
             {image?.files?.length > 0 && (
               <>
-                <div className="overflow-x-auto flex gap-4 pb-2">
+                <div className="overflow-x-auto flex gap-4 py-4">
                   {image.files.map((url, i) => (
                     <img
                       key={i}
