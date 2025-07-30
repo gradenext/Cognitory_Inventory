@@ -10,7 +10,7 @@ const CountBadge = ({ label, count }) => (
   </div>
 );
 
-const UserProfilePage = () => {
+const UserProfile = () => {
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState(null);
   const [breakdown, setBreakdown] = useState([]);
@@ -72,4 +72,4 @@ const UserProfilePage = () => {
   );
 };
 
-export default UserProfilePage;
+export default UserProfile;

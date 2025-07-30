@@ -178,27 +178,27 @@ export const getAllQuestions = async (req, res) => {
         id: enterpriseId,
         key: "Enterprise ID",
       });
-      matchFilter.enterprise = enterpriseId;
+      matchFilter.enterprise = new mongoose.Types.ObjectId(enterpriseId);
     }
     if (classId) {
       refsToCheck.push({ model: Class, id: classId, key: "Class ID" });
-      matchFilter.class = classId;
+      matchFilter.class = new mongoose.Types.ObjectId(classId);
     }
     if (subjectId) {
       refsToCheck.push({ model: Subject, id: subjectId, key: "Subject ID" });
-      matchFilter.subject = subjectId;
+      matchFilter.subject = new mongoose.Types.ObjectId(subjectId);
     }
     if (topicId) {
       refsToCheck.push({ model: Topic, id: topicId, key: "Topic ID" });
-      matchFilter.topic = topicId;
+      matchFilter.topic = new mongoose.Types.ObjectId(topicId);
     }
     if (subtopicId) {
       refsToCheck.push({ model: Subtopic, id: subtopicId, key: "Subtopic ID" });
-      matchFilter.subtopic = subtopicId;
+      matchFilter.subtopic = new mongoose.Types.ObjectId(subtopicId);
     }
     if (levelId) {
       refsToCheck.push({ model: Level, id: levelId, key: "Level ID" });
-      matchFilter.level = levelId;
+      matchFilter.level = new mongoose.Types.ObjectId(levelId);
     }
 
     const { userId: authUserId, role } = req.user;
@@ -213,10 +213,10 @@ export const getAllQuestions = async (req, res) => {
         );
       }
       refsToCheck.push({ model: User, id: authUserId, key: "User ID" });
-      matchFilter.creator = authUserId;
+      matchFilter.creator = new mongoose.Types.ObjectId(authUserId);
     } else if (queryUserId) {
       refsToCheck.push({ model: User, id: queryUserId, key: "User ID" });
-      matchFilter.creator = queryUserId;
+      matchFilter.creator = new mongoose.Types.ObjectId(queryUserId);
     }
 
     if (shouldFilterDeleted) {
@@ -282,17 +282,17 @@ export const getAllQuestions = async (req, res) => {
       pipeline.push({ $match: reviewFilter });
     }
 
-    pipeline.push({ $project: { _id: 1 } });
+    pipeline.push({ $sort: sortOption });
 
-    const totalResult = await Question.aggregate([
-      ...pipeline,
-      { $count: "total" },
-    ]);
+    const countPipeline = [...pipeline, { $count: "total" }];
+    const totalResult = await Question.aggregate(countPipeline);
     const total = totalResult[0]?.total || 0;
 
     if (shouldPaginate) {
       pipeline.push({ $skip: skip }, { $limit: Number(limit) });
     }
+
+    pipeline.push({ $project: { _id: 1 } });
 
     const idResults = await Question.aggregate(pipeline);
     const questionIds = idResults.map((doc) => doc._id);

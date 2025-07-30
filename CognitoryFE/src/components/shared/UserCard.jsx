@@ -1,6 +1,7 @@
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import Modal from "./Modal";
+import { useNavigate } from "react-router-dom";
 
 const UserCard = ({
   user,
@@ -10,6 +11,7 @@ const UserCard = ({
   activeAction,
   disabled,
 }) => {
+  const navigate = useNavigate();
   const {
     _id,
     name,
@@ -109,10 +111,10 @@ const UserCard = ({
           <button
             disabled={disabled}
             onClick={() => setShowApproveModal(true)}
-            className={`px-4 py-2 text-sm rounded-lg flex justify-center items-center gap-2 transition w-full md:w-auto cursor-pointer ${
+            className={`px-4 py-2 text-sm text-white rounded-lg flex justify-center items-center gap-2 transition w-full cursor-pointer ${
               approved
-                ? "bg-red-500/10 text-red-300 hover:bg-red-500/20"
-                : "bg-green-500/10 text-green-300 hover:bg-green-500/20"
+                ? "bg-red-500/60  hover:bg-red-500/80"
+                : "bg-green-500/60  hover:bg-green-500/80"
             }`}
           >
             {approved ? "Unapprove" : "Approve"}
@@ -121,15 +123,34 @@ const UserCard = ({
           <button
             disabled={disabled}
             onClick={() => setShowRoleModal(true)}
-            className={`px-4 py-2 text-sm rounded-lg flex justify-center items-center gap-2 transition w-full md:w-auto cursor-pointer ${
+            className={`px-4 py-2 text-sm text-white rounded-lg flex justify-center items-center gap-2 transition w-full cursor-pointer ${
               role === "admin"
-                ? "bg-yellow-500/10 text-yellow-300 hover:bg-yellow-500/20"
-                : "bg-blue-500/10 text-blue-300 hover:bg-blue-500/20"
+                ? "bg-yellow-500/60  hover:bg-yellow-500/80"
+                : "bg-blue-500/60  hover:bg-blue-500/80"
             } `}
           >
             {role === "admin" ? "Demote to User" : "Promote to Admin"}
           </button>
         </div>
+
+        {role === "user" && (
+          <button
+            disabled={disabled}
+            onClick={() => navigate(`/admin/user/${user?._id}`)}
+            className={`px-4 py-2 text-sm rounded-lg flex justify-center items-center gap-2  w-full cursor-pointer bg-white text-black hover:bg-black hover:text-white transition-colors duration-300 `}
+          >
+            View Profile
+          </button>
+        )}
+        {role === "user" && (
+          <button
+            disabled={disabled}
+            onClick={() => navigate(`/admin/question/user/${user?._id}`)}
+            className={`px-4 py-2 text-sm rounded-lg flex justify-center items-center gap-2  w-full cursor-pointer bg-white text-black hover:bg-black hover:text-white transition-colors duration-300 `}
+          >
+            View Questions
+          </button>
+        )}
       </div>
 
       {/* Approve Confirmation Modal */}

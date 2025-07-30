@@ -9,7 +9,7 @@ const Admin = () => {
     },
     {
       label: "Users",
-      path: "user",
+      path: "user/all",
     },
     {
       label: "Questions",

@@ -25,6 +25,8 @@ import Question from "./components/admin/Question";
 import UserProfile from "./components/user/UserProfile";
 import ReviewQuestion from "./components/admin/ReviewQuestion";
 import Review from "./components/admin/Review";
+import UserProfileAdmin from "./components/admin/UserProfileAdmin";
+import UserQuestion from "./components/admin/UserQuestion";
 
 function App() {
   const token = useSelector((state) => state?.user?.token);
@@ -49,8 +51,10 @@ function App() {
               element={<Navigate to="/admin/my-profile" replace />}
             />
             <Route path="my-profile" element={<MyProfile />} />
-            <Route path="user" element={<Users />} />
+            <Route path="user/all" element={<Users />} />
+            <Route path="user/:userId" element={<UserProfileAdmin />} />
             <Route path="question/all" element={<Question />} />
+            <Route path="question/user/:userId" element={<UserQuestion />} />
             <Route path="review/all" element={<Review />} />
             <Route path="review/:questionId" element={<ReviewQuestion />} />
             {/* <Route path="question/:questionId" element={<Enterprise />} /> */}

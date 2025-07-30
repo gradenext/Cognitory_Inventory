@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { CheckCircle, ChevronDown, Loader2, Star, Trash } from "lucide-react";
 import { useSelector } from "react-redux";
 import { deleteQuestion } from "../../services/deleteAPIs";
-import { toast } from "react-hot-toast";
 import Modal from "./Modal";
 import { useQueryObject } from "../../services/query";
 import { useNavigate } from "react-router-dom";
@@ -49,7 +48,6 @@ const QuestionCard = ({
   const [isOpen, setIsOpen] = useState(shouldOpen);
   const [showDelete, setShowDelete] = useState(false);
   const [loading, setLoading] = useState(shouldOpen);
-  const { questionsQuery } = useQueryObject({});
 
   const handleDelete = async (e) => {
     e.stopPropagation();
@@ -58,7 +56,6 @@ const QuestionCard = ({
       await deleteQuestion(question?._id);
       successToast("Question deleted succesfully");
       setShowDelete(false);
-      await questionsQuery.refetch();
     } catch (error) {
       errorToast(error?.response?.data?.message || error?.message);
     } finally {

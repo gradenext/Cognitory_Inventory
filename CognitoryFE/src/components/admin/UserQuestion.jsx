@@ -1,13 +1,12 @@
-import React from "react";
-import { useQueryObject } from "../../services/query";
-import QuestionCard from "../shared/QuestionCard";
 import { Loader2 } from "lucide-react";
+import { useQueryObject } from "../../services/query";
 import Pagination from "../shared/Pagination";
+import { useParams } from "react-router-dom";
+import QuestionCard from "../shared/QuestionCard";
 
-const CreatedQuestion = () => {
-  const { questions, questionsQuery, setPage } = useQueryObject({
-    reviewed: false,
-  });
+const UserQuestion = () => {
+  const { userId } = useParams();
+  const { questions, questionsQuery, setPage } = useQueryObject({ userId });
   const isLoading = questionsQuery?.isLoading;
   const total = questions?.data?.total ?? "-";
   const list = questions?.data?.questions || [];
@@ -41,7 +40,12 @@ const CreatedQuestion = () => {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {list.map((question) => (
-            <QuestionCard key={question._id} question={question} />
+            <QuestionCard
+              key={question._id}
+              question={question}
+              shouldDelete={true}
+              shouldReview={true}
+            />
           ))}
         </div>
       )}
@@ -49,4 +53,4 @@ const CreatedQuestion = () => {
   );
 };
 
-export default CreatedQuestion;
+export default UserQuestion;

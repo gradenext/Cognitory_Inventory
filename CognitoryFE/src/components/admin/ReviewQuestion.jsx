@@ -76,10 +76,7 @@ const ReviewQuestion = () => {
       setLoading(true);
       await reviewQuestion(question?._id, payload);
       successToast("Review submitted!");
-      await queryClient.invalidateQueries({
-        queryKey: ["questions", null, false, page],
-      });
-      navigate("/admin/review/all");
+      navigate(-1);
     } catch (err) {
       errorToast(
         err?.response?.data?.message ||

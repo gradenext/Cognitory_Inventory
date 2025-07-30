@@ -641,7 +641,7 @@ export const getUserProfile = async (req, res) => {
     if (role === "user") {
       userId = authUserId;
     } else {
-      userId = req.params.userId;
+      userId = req.query.userId;
     }
 
     if (!userId) {

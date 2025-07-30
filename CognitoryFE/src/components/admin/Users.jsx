@@ -1,21 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
-import { toast } from "react-hot-toast";
-import { getAllUsers } from "../../services/getAPIs";
 import UserCard from "../shared/UserCard";
 import { demoteAdmin, promoteUser, toggleApprove } from "../../services/auth";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { errorToast, successToast } from "../toast/Toast";
+import { useQueryObject } from "../../services/query";
 
 const Users = () => {
   const [actionInProgress, setActionInProgress] = useState(false);
   const [activeUserId, setActiveUserId] = useState(null);
   const [activeAction, setActiveAction] = useState(null);
 
-  const users = useQuery({
-    queryKey: ["users"],
-    queryFn: getAllUsers,
-  });
+  const { usersForAdminQuery: users } = useQueryObject({});
 
   const isLoading = users.isLoading || users.isFetching;
   const userUsers = users?.data?.filter((u) => u.role === "user");

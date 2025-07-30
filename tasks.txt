@@ -47,8 +47,8 @@ Admin -
         - avg rating of each user. ----
         - approve/unapprove user ----
         - promote/demote user ----
+        - See user profile. ----
         - View all question created by user
-        - See user profile.
     Questions
         - Questions created so far(no filter). ----
         - reviewed questions.

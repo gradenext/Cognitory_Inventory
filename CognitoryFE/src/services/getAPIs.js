@@ -92,20 +92,23 @@ export const getAllUsers = async () => {
   }
 };
 
-export const getUserProfile = async () => {
+export const getUserProfile = async (userId) => {
   try {
-    const response = await api.get(`/user/profile`);
+    const response = await api.get(
+      `/user/profile${userId ? `?userId=${userId}` : ""}`
+    );
     return response?.data?.data;
   } catch (error) {
     console.log(error);
     errorToast(error.response?.data?.message);
-    return [];
+    return {};
   }
 };
 
 export const getAllQuestion = async (
   approved = null,
   reviewed = null,
+  userId = null,
   role = null,
   page = 1,
   limit = 20
@@ -117,6 +120,9 @@ export const getAllQuestion = async (
     }
     if (reviewed !== null) {
       query.push(`reviewed=${reviewed}`);
+    }
+    if (userId !== null) {
+      query.push(`userId=${userId}`);
     }
     const response = await api.get(
       `/question?filterDeleted=${

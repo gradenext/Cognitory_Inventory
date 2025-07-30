@@ -1,16 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   getAllQuestion,
+  getAllUsers,
   getClasses,
   getEnterprise,
   getLevels,
   getSubjects,
   getSubtopics,
   getTopics,
+  getUserProfile,
 } from "./getAPIs";
 import { useSelector } from "react-redux";
-import { useLocation } from "react-router-dom";
-import { useState } from "react";
+import { matchPath, useLocation } from "react-router-dom";
+import { useMemo, useState } from "react";
 
 export const useQueryObject = ({
   enterpriseId = null,
@@ -18,89 +20,160 @@ export const useQueryObject = ({
   subjectId = null,
   topicId = null,
   subtopicId = null,
-  approved,
-  reviewed,
+  approved = null,
+  reviewed = null,
+  userId = null,
 }) => {
   const { pathname } = useLocation();
   const role = useSelector((state) => state?.user?.user?.role);
   const token = localStorage.getItem("token");
   const [page, setPage] = useState(1);
 
-  const enterprises = useQuery({
-    queryKey: ["enterprise", role],
-    queryFn: () => getEnterprise(),
-    enabled: role === "super" && token,
+  const isLoggedIn = !!token;
+
+  // ===================== USERS LIST FOR ADMIN =====================
+
+  const shouldFetchUsers =
+    isLoggedIn && role !== "user" && ["/admin/user/all"].includes(pathname);
+
+  const usersForAdminQuery = useQuery({
+    queryKey: ["users", token],
+    queryFn: getAllUsers,
+    enabled: shouldFetchUsers,
   });
 
-  const classes = useQuery({
-    queryKey: ["class", enterpriseId, role],
+  // ===================== USER PROFILE =====================
+  const userQuery = useQuery({
+    queryKey: ["user-profile", userId, token],
+    queryFn: () => getUserProfile(userId),
+    enabled: isLoggedIn && !!userId,
+  });
+
+  // ===================== ENTERPRISE =====================
+  const enterpriseQuery = useQuery({
+    queryKey: ["enterprise", role, token],
+    queryFn: getEnterprise,
+    enabled: isLoggedIn && role === "super",
+  });
+
+  // ===================== CLASS =====================
+  const classesQuery = useQuery({
+    queryKey: ["class", enterpriseId, role, token],
     queryFn: () => getClasses(enterpriseId, role),
-    enabled: !!enterpriseId && !!token,
+    enabled: isLoggedIn && !!enterpriseId,
   });
 
-  const subjects = useQuery({
-    queryKey: ["subject", classId, role],
+  // ===================== SUBJECT =====================
+  const subjectsQuery = useQuery({
+    queryKey: ["subject", classId, role, token],
     queryFn: () => getSubjects(classId, role),
-    enabled: !!classId && !!token,
+    enabled: isLoggedIn && !!classId,
   });
 
-  const topics = useQuery({
-    queryKey: ["topics", subjectId, role],
+  // ===================== TOPIC =====================
+  const topicsQuery = useQuery({
+    queryKey: ["topics", subjectId, role, token],
     queryFn: () => getTopics(subjectId, role),
-    enabled: !!subjectId && !!token,
+    enabled: isLoggedIn && !!subjectId,
   });
 
-  const subtopics = useQuery({
-    queryKey: ["subtopics", topicId, role],
+  // ===================== SUBTOPIC =====================
+  const subtopicsQuery = useQuery({
+    queryKey: ["subtopics", topicId, role, token],
     queryFn: () => getSubtopics(topicId, role),
-    enabled: !!topicId && !!token,
+    enabled: isLoggedIn && !!topicId,
   });
 
-  const levels = useQuery({
-    queryKey: ["levels", subtopicId, role],
+  // ===================== LEVEL =====================
+  const levelsQuery = useQuery({
+    queryKey: ["levels", subtopicId, role, token],
     queryFn: () => getLevels(subtopicId, role),
-    enabled: !!subtopicId && !!token,
+    enabled: isLoggedIn && !!subtopicId,
   });
 
-  const shouldFetchQuestions =
-    token &&
-    [
+  // ===================== QUESTION LIST =====================
+
+  const shouldFetchQuestions = useMemo(() => {
+    const questionFetchPaths = [
       "/user/question/reviewed",
       "/user/question/created",
       "/admin/question/all",
       "/admin/review/all",
-    ].includes(pathname);
+      "/admin/question/user/:userId",
+    ];
+    return (
+      isLoggedIn &&
+      questionFetchPaths.some((route) => matchPath(route, pathname))
+    );
+  }, [isLoggedIn, pathname]);
 
-  const questions = useQuery({
-    queryKey: ["questions", approved ?? null, reviewed ?? null, page],
-    queryFn: () => getAllQuestion(approved, reviewed, role, page),
-    enabled: shouldFetchQuestions,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchInterval: 10 * 60 * 1000, // 10 minutes
+  const isReadyForQuery = useMemo(() => {
+    if (!shouldFetchQuestions) return false;
+
+    // For routes that need no filter
+    if (
+      pathname === "/user/question/created" ||
+      pathname === "/admin/question/all"
+    ) {
+      return true;
+    }
+
+    // For routes that need specific filters
+    if (pathname === "/user/question/reviewed") {
+      return reviewed !== undefined;
+    }
+
+    if (pathname === "/admin/review/all") {
+      return approved !== undefined;
+    }
+
+    if (pathname.startsWith("/admin/question/user/")) {
+      return userId !== undefined;
+    }
+
+    return false;
+  }, [shouldFetchQuestions, approved, reviewed, userId, pathname]);
+
+  const questionsQuery = useQuery({
+    queryKey: ["questions", approved, reviewed, userId, page, role],
+    queryFn: () => getAllQuestion(approved, reviewed, userId, role, page),
+    enabled: isReadyForQuery,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
   });
 
+  // ===================== RETURNED OBJECT =====================
   return {
-    enterprises: enterprises?.data,
-    enterpriseQuery: enterprises,
+    // User profile
+    user: userQuery?.data,
+    userQuery,
 
-    classes: classes?.data,
-    classesQuery: classes,
+    usersForAdmin: usersForAdminQuery?.data,
+    usersForAdminQuery,
 
-    subjects: subjects?.data,
-    subjectsQuery: subjects,
+    // Other filters
+    enterprises: enterpriseQuery?.data,
+    enterpriseQuery,
 
-    topics: topics?.data,
-    topicsQuery: topics,
+    classes: classesQuery?.data,
+    classesQuery,
 
-    subtopics: subtopics?.data,
-    subtopicsQuery: subtopics,
+    subjects: subjectsQuery?.data,
+    subjectsQuery,
 
-    levels: levels?.data,
-    levelsQuery: levels,
+    topics: topicsQuery?.data,
+    topicsQuery,
 
-    questions: questions?.data,
-    questionsQuery: questions,
+    subtopics: subtopicsQuery?.data,
+    subtopicsQuery,
 
+    levels: levelsQuery?.data,
+    levelsQuery,
+
+    questions: questionsQuery?.data,
+    questionsQuery,
+
+    // Pagination
     page,
     setPage,
   };
