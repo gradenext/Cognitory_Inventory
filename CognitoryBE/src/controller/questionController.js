@@ -503,6 +503,7 @@ export const getGradeNextQuestions = async (req, res) => {
       limit = 10,
       paginate = "false",
       random = "false",
+      image = "false",
     } = req.query;
 
     const { enterprise } = req.params;
@@ -534,8 +535,6 @@ export const getGradeNextQuestions = async (req, res) => {
         resolveId(Subtopic, "Subtopic", subtopic),
         resolveId(Level, "Level", level),
       ]);
-
-    console.log(enterpriseId, classId, subjectId, topicId, subtopicId, levelId);
 
     // Build refsToCheck and Mongo query
     const refsToCheck = [];
@@ -633,6 +632,10 @@ export const getGradeNextQuestions = async (req, res) => {
       questions = questions.filter((q) => q.review?.approved === true);
     } else if (approved === "false") {
       questions = questions.filter((q) => q.review?.approved === false);
+    }
+
+    if (image === "true") {
+      questions = questions.filter((q) => q.image?.files?.length > 0);
     }
 
     const total = questions.length;

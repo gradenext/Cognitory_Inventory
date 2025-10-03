@@ -1,46 +1,66 @@
 import React, { useRef, useState, useEffect } from "react";
 import { ArrowUpFromLine, X } from "lucide-react";
 
-const ImageUpload = ({ onSelect, disabled = false }) => {
+const generateFileKey = (file) =>
+  `${file.name}-${file.size}-${file.lastModified}-${Date.now()}`;
+
+const ImageUpload = ({ onSelect, value = [], error, disabled = false }) => {
   const fileInputRef = useRef(null);
   const [previews, setPreviews] = useState([]);
+
+  useEffect(() => {
+    setPreviews((prev) => {
+      const newPreviews = [];
+
+      // Build preview list
+      value.forEach((file) => {
+        // Reuse existing preview if file object matches
+        const existing = prev.find((p) => p.file === file);
+        if (existing) {
+          newPreviews.push(existing);
+        } else {
+          newPreviews.push({
+            file,
+            key: generateFileKey(file),
+            preview: URL.createObjectURL(file),
+          });
+        }
+      });
+
+      // Revoke old previews no longer in value
+      prev.forEach((p) => {
+        if (!newPreviews.find((np) => np.file === p.file)) {
+          URL.revokeObjectURL(p.preview);
+        }
+      });
+
+      return newPreviews;
+    });
+
+    // Cleanup on unmount
+    return () => {
+      previews.forEach((p) => URL.revokeObjectURL(p.preview));
+    };
+  }, [value]);
 
   const handleButtonClick = () => {
     if (!disabled) fileInputRef.current?.click();
   };
 
   const handleImageChange = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    if (selectedFiles.length === 0) return;
+    const selectedFiles = e.target.files ? Array.from(e.target.files) : [];
+    if (!selectedFiles.length) return;
 
-    const newPreviews = selectedFiles.map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
-
-    const updatedPreviews = [...previews, ...newPreviews];
-    setPreviews(updatedPreviews);
-    onSelect?.(updatedPreviews.map((p) => p.file));
-
+    onSelect?.([...value, ...selectedFiles]);
     e.target.value = "";
   };
 
-  const removeImage = (index) => {
-    const removed = previews[index];
-    if (removed?.preview) {
-      URL.revokeObjectURL(removed.preview);
-    }
-
-    const updatedPreviews = previews.filter((_, i) => i !== index);
-    setPreviews(updatedPreviews);
-    onSelect?.(updatedPreviews.map((p) => p.file));
+  const removeImage = (key) => {
+    const updatedFiles = value.filter(
+      (file) => !previews.find((p) => p.key === key && p.file === file)
+    );
+    onSelect?.(updatedFiles);
   };
-
-  useEffect(() => {
-    return () => {
-      previews.forEach((p) => URL.revokeObjectURL(p.preview));
-    };
-  }, []);
 
   return (
     <div
@@ -58,24 +78,23 @@ const ImageUpload = ({ onSelect, disabled = false }) => {
         disabled={disabled}
       />
 
-      {/* Preview Grid */}
       <div>
         {previews.length > 0 && (
           <div className="flex flex-wrap justify-center items-center gap-4">
-            {previews.map(({ preview }, index) => (
+            {previews.map(({ file, key, preview }) => (
               <div
-                key={index}
-                className="relative w-48 h-48 p-2 rounded-xl border border-white/30 shadow-inner backdrop-blur-sm"
+                key={key}
+                className="relative w-48 h-48 p-2 flex justify-center items-center rounded-xl border border-white/30 shadow-inner backdrop-blur-sm"
               >
                 <img
                   src={preview}
-                  alt={`preview-${index}`}
+                  alt={file.name}
                   className=" h-40 object-contain"
                 />
                 {!disabled && (
                   <button
                     type="button"
-                    onClick={() => removeImage(index)}
+                    onClick={() => removeImage(key)}
                     className="absolute cursor-pointer -top-2 -right-2 z-10 bg-white text-black rounded-full p-1 hover:bg-opacity-80 transition"
                   >
                     <X className="w-4 h-4" />
@@ -105,6 +124,8 @@ const ImageUpload = ({ onSelect, disabled = false }) => {
           Upload Images
         </button>
       </div>
+
+      {error && <p className="text-sm text-red-500 text-center">{error}</p>}
     </div>
   );
 };
