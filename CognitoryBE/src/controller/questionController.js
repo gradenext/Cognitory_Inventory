@@ -163,11 +163,13 @@ export const getAllQuestions = async (req, res) => {
       page = 1,
       limit = 10,
       paginate = "false",
+      image = "false",
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
     const shouldPaginate = paginate === "true";
     const shouldFilterDeleted = filterDeleted === "true";
+    const shouldFilterImage = image === "true";
 
     const refsToCheck = [];
     const matchFilter = {};
@@ -246,6 +248,14 @@ export const getAllQuestions = async (req, res) => {
       },
       { $unwind: { path: "$review", preserveNullAndEmptyArrays: true } },
     ];
+
+    if (shouldFilterImage) {
+      pipeline.push({
+        $match: {
+          $expr: { $gt: [{ $size: { $ifNull: ["$image.files", []] } }, 0] },
+        },
+      });
+    }
 
     const reviewFilter = {};
 
