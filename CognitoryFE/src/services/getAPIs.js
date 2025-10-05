@@ -109,6 +109,7 @@ export const getAllQuestion = async (
   approved = null,
   reviewed = null,
   userId = null,
+  image = false,
   role = null,
   page = 1,
   limit = 20
@@ -123,6 +124,9 @@ export const getAllQuestion = async (
     }
     if (userId !== null) {
       query.push(`userId=${userId}`);
+    }
+    if (image) {
+      query.push(`image=${image}`);
     }
     const response = await api.get(
       `/question?filterDeleted=${

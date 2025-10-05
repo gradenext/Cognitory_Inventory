@@ -3,10 +3,16 @@ import { useQueryObject } from "../../services/query";
 import Pagination from "../shared/Pagination";
 import { useParams } from "react-router-dom";
 import QuestionCard from "../shared/QuestionCard";
+import { useState } from "react";
+import ToggleSwitch from "../shared/ToogleSwitch";
 
 const UserQuestion = () => {
   const { userId } = useParams();
-  const { questions, questionsQuery, setPage } = useQueryObject({ userId });
+  const [imageOnly, setImageOnly] = useState(false);
+  const { questions, questionsQuery, setPage } = useQueryObject({
+    userId,
+    image: imageOnly,
+  });
   const isLoading = questionsQuery?.isLoading;
   const total = questions?.data?.total ?? "-";
   const list = questions?.data?.questions || [];
@@ -26,6 +32,11 @@ const UserQuestion = () => {
           data={questions?.data}
           onPageChange={(newPage) => setPage(newPage)}
         />
+
+        <div className="w-full flex justify-between items-center my-4">
+          <div className="text-white font-bold ">Image Only</div>
+          <ToggleSwitch value={imageOnly} onChange={setImageOnly} />
+        </div>
       </div>
 
       {/* Conditional Rendering */}

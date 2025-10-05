@@ -4,9 +4,9 @@ const ToggleSwitch = ({
 	label,
 	value,
 	onChange,
-	onColor = "bg-primaryColor",
+	onColor = "bg-white",
 	offColor = "bg-gray-200",
-	thumbColor = "bg-white",
+	thumbColor = "bg-black",
 	className = "",
 }) => {
 	const [isOn, setIsOn] = useState(value);

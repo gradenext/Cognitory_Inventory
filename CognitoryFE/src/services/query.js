@@ -23,6 +23,7 @@ export const useQueryObject = ({
   approved = null,
   reviewed = null,
   userId = null,
+  image = false,
 }) => {
   const { pathname } = useLocation();
   const role = useSelector((state) => state?.user?.user?.role);
@@ -135,8 +136,9 @@ export const useQueryObject = ({
   }, [shouldFetchQuestions, approved, reviewed, userId, pathname]);
 
   const questionsQuery = useQuery({
-    queryKey: ["questions", approved, reviewed, userId, page, role],
-    queryFn: () => getAllQuestion(approved, reviewed, userId, role, page),
+    queryKey: ["questions", approved, reviewed, userId, image, page, role],
+    queryFn: () =>
+      getAllQuestion(approved, reviewed, userId, image, role, page),
     enabled: isReadyForQuery,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
