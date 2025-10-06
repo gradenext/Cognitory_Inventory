@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { validateWithZod } from "../../validations/validate";
-import { getSingleQuestionForReview } from "../../services/getAPIs";
+import { getQuestionById } from "../../services/getAPIs";
 import ToggleSwitch from "../shared/ToogleSwitch";
 import Input from "../shared/Input";
 
@@ -9,15 +9,9 @@ import { reviewSchema } from "../../validations/question";
 import { Loader2 } from "lucide-react";
 import { reviewQuestion } from "../../services/createAPIs";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQueryObject } from "../../services/query";
-import { useQueryClient } from "@tanstack/react-query";
 import { errorToast, successToast } from "../toast/Toast";
 
 const ReviewQuestion = () => {
-  const queryClient = useQueryClient();
-  const { page } = useQueryObject({
-    reviewed: false,
-  });
   const { questionId } = useParams();
   const navigate = useNavigate();
   const [question, setQuestion] = useState(null);
@@ -36,7 +30,7 @@ const ReviewQuestion = () => {
       setQuestionLoading(true);
       try {
         setQuestion(null);
-        const res = await getSingleQuestionForReview(questionId);
+        const res = await getQuestionById(questionId);
         setQuestion(res);
       } catch (err) {
         errorToast(

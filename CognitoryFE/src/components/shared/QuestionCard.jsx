@@ -1,9 +1,15 @@
 import React, { useState } from "react";
-import { CheckCircle, ChevronDown, Loader2, Star, Trash } from "lucide-react";
+import {
+  CheckCircle,
+  ChevronDown,
+  Edit,
+  Loader2,
+  Star,
+  Trash,
+} from "lucide-react";
 import { useSelector } from "react-redux";
 import { deleteQuestion } from "../../services/deleteAPIs";
 import Modal from "./Modal";
-import { useQueryObject } from "../../services/query";
 import { useNavigate } from "react-router-dom";
 import { errorToast, successToast } from "../toast/Toast";
 
@@ -71,6 +77,7 @@ const QuestionCard = ({
   };
 
   const {
+    _id: questionId,
     text,
     textType,
     type,
@@ -143,6 +150,18 @@ const QuestionCard = ({
           </div>
 
           <div className="flex gap-x-2 justify-center items-center">
+            {role === "user" && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/${role}/question/edit/${questionId}`);
+                }}
+                className="bg-white p-2 rounded-lg cursor-pointer"
+              >
+                <Edit className="h-4 w-4 text-black" />
+              </button>
+            )}
+
             {shouldDelete && !deletedAt && role !== "user" && (
               <button
                 onClick={(e) => {

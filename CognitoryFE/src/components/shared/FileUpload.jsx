@@ -4,42 +4,54 @@ import { ArrowUpFromLine, X } from "lucide-react";
 const generateFileKey = (file) =>
   `${file.name}-${file.size}-${file.lastModified}-${Date.now()}`;
 
+const generateUrlKey = (url) => `${url}-${Date.now()}`;
+
 const ImageUpload = ({ onSelect, value = [], error, disabled = false }) => {
   const fileInputRef = useRef(null);
   const [previews, setPreviews] = useState([]);
 
   useEffect(() => {
+    // Use a single fresh array for previews
+    const newPreviews = value
+      .map((item) => {
+        // Case 1: File object
+        if (item instanceof File) {
+          return {
+            type: "file",
+            file: item,
+            key: generateFileKey(item),
+            preview: URL.createObjectURL(item),
+          };
+        }
+
+        // Case 2: String URL
+        if (typeof item === "string") {
+          return {
+            type: "url",
+            url: item,
+            key: generateUrlKey(item),
+            preview: item,
+          };
+        }
+
+        // Unsupported item type — ignore gracefully
+        return null;
+      })
+      .filter(Boolean);
+
+    // Cleanup any previous File previews
     setPreviews((prev) => {
-      const newPreviews = [];
-
-      // Build preview list
-      value.forEach((file) => {
-        // Reuse existing preview if file object matches
-        const existing = prev.find((p) => p.file === file);
-        if (existing) {
-          newPreviews.push(existing);
-        } else {
-          newPreviews.push({
-            file,
-            key: generateFileKey(file),
-            preview: URL.createObjectURL(file),
-          });
-        }
-      });
-
-      // Revoke old previews no longer in value
-      prev.forEach((p) => {
-        if (!newPreviews.find((np) => np.file === p.file)) {
-          URL.revokeObjectURL(p.preview);
-        }
-      });
-
+      prev
+        .filter((p) => p.type === "file")
+        .forEach((p) => URL.revokeObjectURL(p.preview));
       return newPreviews;
     });
 
     // Cleanup on unmount
     return () => {
-      previews.forEach((p) => URL.revokeObjectURL(p.preview));
+      newPreviews
+        .filter((p) => p.type === "file")
+        .forEach((p) => URL.revokeObjectURL(p.preview));
     };
   }, [value]);
 
@@ -56,10 +68,35 @@ const ImageUpload = ({ onSelect, value = [], error, disabled = false }) => {
   };
 
   const removeImage = (key) => {
-    const updatedFiles = value.filter(
-      (file) => !previews.find((p) => p.key === key && p.file === file)
-    );
-    onSelect?.(updatedFiles);
+    setPreviews((prev) => {
+      // Split previews into to-keep and to-remove
+      const [toRemove, toKeep] = prev.reduce(
+        (acc, p) => {
+          if (p.key === key) acc[0].push(p);
+          else acc[1].push(p);
+          return acc;
+        },
+        [[], []]
+      );
+
+      // Revoke object URLs for Files
+      toRemove.forEach((p) => {
+        if (p.type === "file") URL.revokeObjectURL(p.preview);
+      });
+
+      // Update parent value
+      const updatedFiles = value.filter((item) => {
+        return !toRemove.some((p) => {
+          if (p.type === "file" && item instanceof File) return item === p.file;
+          if (p.type === "url" && typeof item === "string")
+            return item === p.url;
+          return false;
+        });
+      });
+
+      onSelect?.(updatedFiles);
+      return toKeep;
+    });
   };
 
   return (
@@ -81,15 +118,15 @@ const ImageUpload = ({ onSelect, value = [], error, disabled = false }) => {
       <div>
         {previews.length > 0 && (
           <div className="flex flex-wrap justify-center items-center gap-4">
-            {previews.map(({ file, key, preview }) => (
+            {previews.map(({ key, preview, type, file, url }) => (
               <div
                 key={key}
                 className="relative w-48 h-48 p-2 flex justify-center items-center rounded-xl border border-white/30 shadow-inner backdrop-blur-sm"
               >
                 <img
                   src={preview}
-                  alt={file.name}
-                  className=" h-40 object-contain"
+                  alt={type === "file" ? file?.name : url}
+                  className="h-40 object-contain"
                 />
                 {!disabled && (
                   <button

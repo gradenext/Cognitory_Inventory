@@ -27,6 +27,7 @@ import ReviewQuestion from "./components/admin/ReviewQuestion";
 import Review from "./components/admin/Review";
 import UserProfileAdmin from "./components/admin/UserProfileAdmin";
 import UserQuestion from "./components/admin/UserQuestion";
+import EditQuestion from "./components/shared/EditQuestion";
 
 function App() {
   const token = useSelector((state) => state?.user?.token);
@@ -54,6 +55,10 @@ function App() {
             <Route path="user/all" element={<Users />} />
             <Route path="user/:userId" element={<UserProfileAdmin />} />
             <Route path="question/all" element={<Question />} />
+            <Route
+              path="question/edit/:questionId"
+              element={<EditQuestion />}
+            />
             <Route path="question/user/:userId" element={<UserQuestion />} />
             <Route path="review/all" element={<Review />} />
             <Route path="review/:questionId" element={<ReviewQuestion />} />
@@ -118,6 +123,10 @@ function App() {
             <Route
               path="question/add/:enterpriseId"
               element={<AddQuestion />}
+            />
+            <Route
+              path="question/edit/:questionId"
+              element={<EditQuestion />}
             />
             <Route path="question/created" element={<CreatedQuestion />} />
             <Route path="question/reviewed" element={<ReviewedQuestion />} />
