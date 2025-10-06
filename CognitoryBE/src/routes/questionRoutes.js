@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createQuestion,
+  editQuestion,
   getAllQuestions,
   getGradeNextQuestions,
   getOneUnreviewedQuestion,
@@ -12,6 +13,7 @@ import { authMiddleware, isAdmin } from "../middleware/auth.js";
 const router = express.Router();
 
 router.post("/", authMiddleware, createQuestion);
+router.patch("/:questionId", authMiddleware, editQuestion);
 router.get("/", authMiddleware, getAllQuestions);
 router.get("/:questionId", authMiddleware, getQuestionById);
 router.get("/custom/:enterpriseId", authMiddleware, getGradeNextQuestions);

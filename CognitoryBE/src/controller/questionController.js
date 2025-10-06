@@ -8,7 +8,7 @@ import Subject from "../models/Subject.js";
 import Topic from "../models/Topic.js";
 import Subtopic from "../models/Subtopic.js";
 import Level from "../models/Level.js";
-import { questionSchema } from "../validations/question.js";
+import { editQuestionSchema, questionSchema } from "../validations/question.js";
 import { validateWithZod } from "../validations/validate.js";
 import handleError from "../helper/handleError.js";
 import handleSuccess from "../helper/handleSuccess.js";
@@ -141,6 +141,134 @@ export const createQuestion = async (req, res) => {
       return handleError(res, {}, err.message, 404);
     }
     return handleError(res, err, "Failed to create question", 500);
+  } finally {
+    await session.endSession();
+  }
+};
+
+export const editQuestion = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const {
+      text,
+      textType,
+      images = [],
+      imageUUID,
+      type,
+      options,
+      answer,
+      hint,
+      explanation,
+    } = req.body;
+
+    const { questionId } = req.params;
+    const { userId, role } = req.user;
+
+    // ------------------ Zod Validation ------------------
+    const validationResult = validateWithZod(editQuestionSchema, {
+      text,
+      textType,
+      images,
+      imageUUID,
+      type,
+      options,
+      answer,
+      hint,
+      explanation,
+    });
+
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
+    // ------------------ ID Validation ------------------
+    const refsToCheck = [
+      { model: Question, id: questionId, key: "Question ID" },
+    ];
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    // ------------------ Transaction ------------------
+    const updatedQuestion = await session.withTransaction(async () => {
+      // Verify the question exists (throws error if missing)
+      await verifyModelReferences(refsToCheck, session);
+
+      // Fetch the question for ownership and deletion checks
+      const existingQuestion = await Question.findById(questionId)
+        .select("creator deletedAt")
+        .session(session);
+
+      if (!existingQuestion) {
+        return handleError(res, {}, "Question not found", 404);
+      }
+
+      // --------- Soft-delete Check ---------
+      if (existingQuestion.deletedAt && role !== "super") {
+        return handleError(res, {}, "Cannot edit a deleted question", 403);
+      }
+
+      // --------- Ownership Check ---------
+      if (role === "user" && existingQuestion.creator.toString() !== userId) {
+        return handleError(res, {}, "You can't edit this question", 403);
+      }
+
+      // --------- Update Operation ---------
+      const updated = await Question.findByIdAndUpdate(
+        questionId,
+        {
+          text,
+          textType,
+          image: { uuid: imageUUID, files: images },
+          type,
+          options,
+          answer,
+          hint,
+          explanation,
+        },
+        {
+          new: true,
+          runValidators: true,
+          session,
+        }
+      )
+      .select("-__v -slug -creator -enterprise -class -subject -topic -subtopic -review");
+
+      if (!updated) {
+        return handleError(res, {}, "Question not found", 404);
+      }
+
+      return updated;
+    });
+
+    // ------------------ Success Response ------------------
+    if (!updatedQuestion) return;
+
+    return handleSuccess(
+      res,
+      updatedQuestion,
+      "Question updated successfully",
+      200
+    );
+  } catch (err) {
+    console.error("Edit question error:", err);
+
+    if (err.code === 11000) {
+      return handleError(res, {}, "Duplicate entry detected", 409);
+    }
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
+
+    return handleError(res, err, "Failed to update question", 500);
   } finally {
     await session.endSession();
   }
@@ -382,7 +510,7 @@ export const getQuestionById = async (req, res) => {
       return handleError(res, {}, "Class not found", 404);
     }
 
-    return handleSuccess(res, cls, "Class fetched successfully", 200);
+    return handleSuccess(res, cls, "Question fetched successfully", 200);
   } catch (err) {
     console.error(err);
     return handleError(res, err, "Failed to fetch class", 500);
