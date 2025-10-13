@@ -15,6 +15,7 @@ import handleSuccess from "../helper/handleSuccess.js";
 import { verifyModelReferences } from "../helper/referenceCheck.js";
 import isValidMongoId from "../helper/isMongoId.js";
 import { getPaginationMeta } from "../helper/getPaginationMeta.js";
+import { z } from "zod";
 
 export const createQuestion = async (req, res) => {
   const session = await mongoose.startSession();
@@ -628,7 +629,61 @@ export const softDeleteQuestion = async (req, res) => {
 
 export const getGradeNextQuestions = async (req, res) => {
   try {
-    let {
+    const querySchema = z
+      .object({
+        class: z.string().optional(),
+        subject: z.string().optional(),
+        topic: z.string().optional(),
+        subtopic: z.string().optional(),
+        level: z.string().optional(),
+        reviewed: z.enum(["true", "false"]).optional(),
+        approved: z.enum(["true", "false"]).optional(),
+        filterDeleted: z.enum(["true", "false"]).optional().default("true"),
+        sort: z.string().optional().default("createdAt:desc"),
+        page: z.string().optional().default("1"),
+        limit: z.string().optional().default("10"),
+        paginate: z.enum(["true", "false"]).optional().default("false"),
+        image: z.enum(["true", "false"]).optional().default("false"),
+      })
+      .refine(
+        (data) => {
+          // Subject requires class
+          if (data.subject && !data.class) return false;
+          // Topic requires subject and class
+          if (data.topic && (!data.subject || !data.class)) return false;
+          // Subtopic requires topic, subject, class
+          if (data.subtopic && (!data.topic || !data.subject || !data.class))
+            return false;
+          // Level requires subtopic, topic, subject, class
+          if (
+            data.level &&
+            (!data.subtopic || !data.topic || !data.subject || !data.class)
+          )
+            return false;
+
+          return true;
+        },
+        {
+          message:
+            "Hierarchy violation: ensure ancestor fields exist. " +
+            "subject requires class; topic requires subject & class; subtopic requires topic, subject & class; level requires subtopic, topic, subject & class",
+        }
+      );
+
+    // ---------- Validate query params ----------
+    const validationResult = validateWithZod(querySchema, req.query);
+
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
+    // ---------- Extract validated values ----------
+    const {
       class: classParam,
       subject,
       topic,
@@ -649,15 +704,26 @@ export const getGradeNextQuestions = async (req, res) => {
     const shouldPaginate = paginate === "true";
     const shouldFilterDeleted = filterDeleted === "true";
 
+    const numericPage = Number(page);
+    const numericLimit = Number(limit);
+    if (numericPage <= 0 || numericLimit <= 0) {
+      return handleError(res, {}, "Page and limit must be greater than 0", 400);
+    }
+
     // ---------- Resolve hierarchical references ----------
     const resolveId = async (model, label, value, extraFilter = {}) => {
       if (!value) return null;
+
+      const filter = { ...extraFilter };
+      Object.keys(filter).forEach(
+        (key) => filter[key] == null && delete filter[key]
+      );
 
       if (mongoose.Types.ObjectId.isValid(value)) {
         const found = await model.findOne({
           _id: value,
           ...(shouldFilterDeleted ? { deletedAt: null } : {}),
-          ...extraFilter,
+          ...filter,
         });
         if (!found) throw new Error(`${label} not found or invalid hierarchy`);
         return found._id.toString();
@@ -666,7 +732,7 @@ export const getGradeNextQuestions = async (req, res) => {
       const doc = await model.findOne({
         slug: value,
         ...(shouldFilterDeleted ? { deletedAt: null } : {}),
-        ...extraFilter,
+        ...filter,
       });
 
       if (!doc) throw new Error(`${label} with slug '${value}' not found`);
@@ -738,13 +804,11 @@ export const getGradeNextQuestions = async (req, res) => {
     }
 
     // ---------- Sorting ----------
-    const [sortField, sortDirection] = sort.split(":");
-    const sortOption = {
-      [sortField || "createdAt"]: sortDirection === "asc" ? 1 : -1,
-    };
+    const [sortField = "createdAt", sortDirection = "desc"] = sort.split(":");
+    const sortOption = { [sortField]: sortDirection === "asc" ? 1 : -1 };
 
     // ---------- Pagination ----------
-    const skip = (Number(page) - 1) * Number(limit);
+    const skip = (numericPage - 1) * numericLimit;
 
     const [questions, total] = await Promise.all([
       Question.find(params, "-__v -slug")
@@ -758,7 +822,8 @@ export const getGradeNextQuestions = async (req, res) => {
           { path: "level", select: "_id name rank slug" },
         ])
         .skip(shouldPaginate ? skip : 0)
-        .limit(shouldPaginate ? Number(limit) : 0)
+        .limit(shouldPaginate ? numericLimit : 0)
+        .lean()
         .exec(),
       Question.countDocuments(params),
     ]);
@@ -784,7 +849,11 @@ export const getGradeNextQuestions = async (req, res) => {
       res,
       {
         ...(shouldPaginate &&
-          getPaginationMeta({ page, limit, totalItems: total })),
+          getPaginationMeta({
+            page: numericPage,
+            limit: numericLimit,
+            totalItems: total,
+          })),
         total,
         questions: finalQuestions,
       },
