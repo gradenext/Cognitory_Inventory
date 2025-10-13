@@ -16,7 +16,7 @@ router.post("/", authMiddleware, createQuestion);
 router.patch("/:questionId", authMiddleware, editQuestion);
 router.get("/", authMiddleware, getAllQuestions);
 router.get("/:questionId", authMiddleware, getQuestionById);
-router.get("/custom/:enterpriseId", authMiddleware, getGradeNextQuestions);
+router.get("/custom/:enterprise", authMiddleware, getGradeNextQuestions);
 router.get(
   "/unreviewed/single",
   authMiddleware,

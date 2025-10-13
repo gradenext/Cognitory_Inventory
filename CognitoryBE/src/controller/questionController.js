@@ -238,8 +238,9 @@ export const editQuestion = async (req, res) => {
           runValidators: true,
           session,
         }
-      )
-      .select("-__v -slug -creator -enterprise -class -subject -topic -subtopic -review");
+      ).select(
+        "-__v -slug -creator -enterprise -class -subject -topic -subtopic -review"
+      );
 
       if (!updated) {
         return handleError(res, {}, "Question not found", 404);
@@ -640,7 +641,6 @@ export const getGradeNextQuestions = async (req, res) => {
       page = 1,
       limit = 10,
       paginate = "false",
-      random = "false",
       image = "false",
     } = req.query;
 
@@ -648,105 +648,106 @@ export const getGradeNextQuestions = async (req, res) => {
 
     const shouldPaginate = paginate === "true";
     const shouldFilterDeleted = filterDeleted === "true";
-    const shouldRandomize = random === "true";
 
-    // Helper to resolve a slug OR ID to _id
-    const resolveId = async (model, label, value) => {
+    // ---------- Resolve hierarchical references ----------
+    const resolveId = async (model, label, value, extraFilter = {}) => {
       if (!value) return null;
+
+      if (mongoose.Types.ObjectId.isValid(value)) {
+        const found = await model.findOne({
+          _id: value,
+          ...(shouldFilterDeleted ? { deletedAt: null } : {}),
+          ...extraFilter,
+        });
+        if (!found) throw new Error(`${label} not found or invalid hierarchy`);
+        return found._id.toString();
+      }
+
       const doc = await model.findOne({
         slug: value,
         ...(shouldFilterDeleted ? { deletedAt: null } : {}),
+        ...extraFilter,
       });
-      if (!doc) {
-        throw new Error(`${label} with slug '${value}' not found`);
-      }
+
+      if (!doc) throw new Error(`${label} with slug '${value}' not found`);
       return doc._id.toString();
     };
 
-    // Resolve all references
-    const [enterpriseId, classId, subjectId, topicId, subtopicId, levelId] =
-      await Promise.all([
-        resolveId(Enterprise, "Enterprise", enterprise),
-        resolveId(Class, "Class", classParam),
-        resolveId(Subject, "Subject", subject),
-        resolveId(Topic, "Topic", topic),
-        resolveId(Subtopic, "Subtopic", subtopic),
-        resolveId(Level, "Level", level),
-      ]);
+    // ---------- Enterprise ----------
+    const enterpriseId = await resolveId(Enterprise, "Enterprise", enterprise);
 
-    // Build refsToCheck and Mongo query
-    const refsToCheck = [];
-    const params = {};
+    // ---------- Class ----------
+    const classId = await resolveId(Class, "Class", classParam, {
+      enterprise: enterpriseId,
+    });
 
-    if (enterpriseId) {
-      refsToCheck.push({
-        model: Enterprise,
-        id: enterpriseId,
-        key: "Enterprise ID",
-      });
-      params.enterprise = enterpriseId;
-    }
-    if (classId) {
-      refsToCheck.push({ model: Class, id: classId, key: "Class ID" });
-      params.class = classId;
-    }
-    if (subjectId) {
-      refsToCheck.push({ model: Subject, id: subjectId, key: "Subject ID" });
-      params.subject = subjectId;
-    }
-    if (topicId) {
-      refsToCheck.push({ model: Topic, id: topicId, key: "Topic ID" });
-      params.topic = topicId;
-    }
-    if (subtopicId) {
-      refsToCheck.push({ model: Subtopic, id: subtopicId, key: "Subtopic ID" });
-      params.subtopic = subtopicId;
-    }
-    if (levelId) {
-      refsToCheck.push({ model: Level, id: levelId, key: "Level ID" });
-      params.level = levelId;
+    // ---------- Subject ----------
+    const subjectId = await resolveId(Subject, "Subject", subject, {
+      class: classId,
+      enterprise: enterpriseId,
+    });
+
+    // ---------- Topic ----------
+    const topicId = await resolveId(Topic, "Topic", topic, {
+      subject: subjectId,
+      class: classId,
+      enterprise: enterpriseId,
+    });
+
+    // ---------- Subtopic ----------
+    const subtopicId = await resolveId(Subtopic, "Subtopic", subtopic, {
+      topic: topicId,
+      subject: subjectId,
+      class: classId,
+      enterprise: enterpriseId,
+    });
+
+    // ---------- Level ----------
+    const levelId = await resolveId(Level, "Level", level, {
+      subtopic: subtopicId,
+      topic: topicId,
+      subject: subjectId,
+      class: classId,
+      enterprise: enterpriseId,
+    });
+
+    // ---------- Build query ----------
+    const params = {
+      enterprise: enterpriseId,
+      ...(classId && { class: classId }),
+      ...(subjectId && { subject: subjectId }),
+      ...(topicId && { topic: topicId }),
+      ...(subtopicId && { subtopic: subtopicId }),
+      ...(levelId && { level: levelId }),
+    };
+
+    if (shouldFilterDeleted) params.deletedAt = null;
+    if (image === "true") params["image.files.0"] = { $exists: true };
+
+    // ✅ Review filters (at DB level)
+    if (reviewed === "true") {
+      params["review.reviewedAt"] = { $exists: true };
+    } else if (reviewed === "false") {
+      params["review.reviewedAt"] = { $exists: false };
     }
 
-    if (shouldFilterDeleted) {
-      params.deletedAt = null;
+    if (approved === "true") {
+      params["review.approved"] = true;
+    } else if (approved === "false") {
+      params["review.approved"] = false;
     }
 
-    const invalidIds = isValidMongoId(refsToCheck);
-    if (invalidIds.length > 0) {
-      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
-    }
-
-    await verifyModelReferences(refsToCheck);
-
+    // ---------- Sorting ----------
     const [sortField, sortDirection] = sort.split(":");
     const sortOption = {
       [sortField || "createdAt"]: sortDirection === "asc" ? 1 : -1,
     };
 
-    let questions;
+    // ---------- Pagination ----------
+    const skip = (Number(page) - 1) * Number(limit);
 
-    if (shouldRandomize) {
-      // Random fetch via $sample (not supporting pagination)
-      questions = await Question.aggregate([
-        { $match: params },
-        { $sample: { size: Number(limit) } },
-      ]);
-
-      // Re-populate via second query to support `.populate()`
-      const questionIds = questions.map((q) => q._id);
-      questions = await Question.find({ _id: { $in: questionIds } })
-        .populate([
-          { path: "enterprise", select: "_id name" },
-          { path: "class", select: "_id name" },
-          { path: "subject", select: "_id name" },
-          { path: "topic", select: "_id name" },
-          { path: "subtopic", select: "_id name" },
-          { path: "level", select: "_id name rank" },
-        ])
-        .exec();
-    } else {
-      // Normal fetch with sorting and pagination
-      questions = await Question.find(params, "-__v")
+    const [questions, total] = await Promise.all([
+      Question.find(params, "-__v -slug")
         .sort(sortOption)
         .populate([
           { path: "enterprise", select: "_id name slug" },
@@ -756,58 +757,36 @@ export const getGradeNextQuestions = async (req, res) => {
           { path: "subtopic", select: "_id name slug" },
           { path: "level", select: "_id name rank slug" },
         ])
-        .exec();
-    }
+        .skip(shouldPaginate ? skip : 0)
+        .limit(shouldPaginate ? Number(limit) : 0)
+        .exec(),
+      Question.countDocuments(params),
+    ]);
 
-    // Filter after population
-    if (reviewed === "true") {
-      questions = questions.filter((q) => q.review?.reviewedAt);
-    } else if (reviewed === "false") {
-      questions = questions.filter((q) => !q.review?.reviewedAt);
-    }
-
-    if (approved === "true") {
-      questions = questions.filter((q) => q.review?.approved === true);
-    } else if (approved === "false") {
-      questions = questions.filter((q) => q.review?.approved === false);
-    }
-
-    if (image === "true") {
-      questions = questions.filter((q) => q.image?.files?.length > 0);
-    }
-
-    const total = questions.length;
-
-    // Slice manually for pagination (only in normal mode)
-    if (shouldPaginate && !shouldRandomize) {
-      const skip = (Number(page) - 1) * Number(limit);
-      questions = questions.slice(skip, skip + Number(limit));
-    }
-
-    const finalQuestion = questions?.map((question) => ({
-      questionType: question?.textType,
-      questionText: question?.text,
-      options: question?.options,
-      correctAnswer: question?.answer,
-      hint: question?.hint,
-      explanation: question?.explanation,
-      images: question?.image?.files,
-      enterprise: question?.enterprise,
-      class: question?.class,
-      subject: question?.subject,
-      topic: question?.topic,
-      subtopic: question?.subtopic,
-      level: question?.level,
+    // ---------- Format response ----------
+    const finalQuestions = questions.map((q) => ({
+      questionType: q.textType,
+      questionText: q.text,
+      options: q.options,
+      correctAnswer: q.answer,
+      hint: q.hint,
+      explanation: q.explanation,
+      images: q.image?.files || [],
+      enterprise: q.enterprise,
+      class: q.class,
+      subject: q.subject,
+      topic: q.topic,
+      subtopic: q.subtopic,
+      level: q.level,
     }));
 
     return handleSuccess(
       res,
       {
         ...(shouldPaginate &&
-          !shouldRandomize &&
           getPaginationMeta({ page, limit, totalItems: total })),
         total,
-        questions: finalQuestion,
+        questions: finalQuestions,
       },
       "Questions fetched successfully",
       200
@@ -816,6 +795,7 @@ export const getGradeNextQuestions = async (req, res) => {
     console.error("Fetch questions error:", err);
     if (
       err.message?.includes("not found") ||
+      err.message?.includes("invalid hierarchy") ||
       err.message?.includes("with slug")
     ) {
       return handleError(res, {}, err.message, 404);
