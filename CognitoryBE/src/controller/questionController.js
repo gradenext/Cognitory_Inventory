@@ -830,6 +830,8 @@ export const getGradeNextQuestions = async (req, res) => {
 
     // ---------- Format response ----------
     const finalQuestions = questions.map((q) => ({
+      _id: q._id,
+      type: q.type,
       questionType: q.textType,
       questionText: q.text,
       options: q.options,
