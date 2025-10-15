@@ -351,9 +351,8 @@ export const getAllQuestions = async (req, res) => {
       matchFilter.creator = new mongoose.Types.ObjectId(queryUserId);
     }
 
-    if (shouldFilterDeleted) {
-      matchFilter.deletedAt = null;
-    }
+    if (shouldFilterDeleted) matchFilter.deletedAt = null;
+    if (shouldFilterImage) matchFilter["image.files.0"] = { $exists: true };
 
     const invalidIds = isValidMongoId(refsToCheck);
     if (invalidIds.length > 0) {
@@ -362,83 +361,29 @@ export const getAllQuestions = async (req, res) => {
 
     await verifyModelReferences(refsToCheck);
 
-    const [sortField = "createdAt", sortDirRaw = "desc"] = sort.split(":");
-    const sortOrder = sortDirRaw === "asc" ? 1 : -1;
-    const sortOption = { [sortField]: sortOrder };
-
-    const pipeline = [
-      { $match: matchFilter },
-      {
-        $lookup: {
-          from: "reviews",
-          localField: "_id",
-          foreignField: "question",
-          as: "review",
-        },
-      },
-      { $unwind: { path: "$review", preserveNullAndEmptyArrays: true } },
-    ];
-
-    if (shouldFilterImage) {
-      pipeline.push({
-        $match: {
-          $expr: { $gt: [{ $size: { $ifNull: ["$image.files", []] } }, 0] },
-        },
-      });
-    }
-
+    // --- Resolve review filters via Review model ---
     const reviewFilter = {};
-
-    if (reviewed === "true") {
-      Object.assign(reviewFilter, {
-        "review.reviewedAt": { $ne: null },
-        "review.reviewable": { $ne: true },
-      });
-    } else if (reviewed === "false") {
-      Object.assign(reviewFilter, {
-        $or: [
-          { "review.reviewedAt": null },
-          { "review.reviewable": true },
-          { review: { $exists: false } },
-        ],
-      });
-    }
-
-    if (approved === "true") {
-      Object.assign(reviewFilter, {
-        "review.reviewedAt": { $ne: null },
-        "review.reviewable": { $ne: true },
-        "review.approved": true,
-      });
-    } else if (approved === "false") {
-      Object.assign(reviewFilter, {
-        "review.reviewedAt": { $ne: null },
-        "review.reviewable": { $ne: true },
-        "review.approved": false,
-      });
-    }
+    if (reviewed === "true") reviewFilter.reviewedAt = { $ne: null };
+    if (reviewed === "false")
+      reviewFilter.$or = [
+        { reviewedAt: null },
+        { reviewedAt: { $exists: false } },
+      ];
+    if (approved === "true") reviewFilter.approved = true;
+    if (approved === "false") reviewFilter.approved = false;
 
     if (Object.keys(reviewFilter).length > 0) {
-      pipeline.push({ $match: reviewFilter });
+      const reviewIds = await Review.find(reviewFilter).select("_id").lean();
+      matchFilter.review = { $in: reviewIds.map((r) => r._id) };
     }
 
-    pipeline.push({ $sort: sortOption });
+    const [sortField = "createdAt", sortDirRaw = "desc"] = sort.split(":");
+    const sortOrder = sortDirRaw === "asc" ? 1 : -1;
 
-    const countPipeline = [...pipeline, { $count: "total" }];
-    const totalResult = await Question.aggregate(countPipeline);
-    const total = totalResult[0]?.total || 0;
+    const total = await Question.countDocuments(matchFilter);
 
-    if (shouldPaginate) {
-      pipeline.push({ $skip: skip }, { $limit: Number(limit) });
-    }
-
-    pipeline.push({ $project: { _id: 1 } });
-
-    const idResults = await Question.aggregate(pipeline);
-    const questionIds = idResults.map((doc) => doc._id);
-
-    const questions = await Question.find({ _id: { $in: questionIds } }, "-__v")
-      .sort(sortOption)
+    let query = Question.find(matchFilter)
+      .sort({ [sortField]: sortOrder })
       .populate([
         { path: "enterprise", select: "_id name" },
         { path: "class", select: "_id name" },
@@ -449,11 +394,17 @@ export const getAllQuestions = async (req, res) => {
         { path: "creator", select: "_id name" },
         {
           path: "review",
-          select: "-__v",
+          select: "_id approved reviewedAt reviewable",
           populate: { path: "reviewedBy", select: "_id name" },
         },
       ])
-      .exec();
+      .select("-__v -slug");
+
+    if (shouldPaginate) {
+      query = query.skip(skip).limit(Number(limit));
+    }
+
+    const questions = await query.exec();
 
     return handleSuccess(
       res,
@@ -706,36 +657,18 @@ export const getGradeNextQuestions = async (req, res) => {
 
     const numericPage = Number(page);
     const numericLimit = Number(limit);
-    if (numericPage <= 0 || numericLimit <= 0) {
-      return handleError(res, {}, "Page and limit must be greater than 0", 400);
-    }
+    const skip = (numericPage - 1) * numericLimit;
 
-    // ---------- Resolve hierarchical references ----------
-    const resolveId = async (model, label, value, extraFilter = {}) => {
+    const resolveId = async (model, label, value, extra = {}) => {
       if (!value) return null;
-
-      const filter = { ...extraFilter };
-      Object.keys(filter).forEach(
-        (key) => filter[key] == null && delete filter[key]
-      );
-
-      if (mongoose.Types.ObjectId.isValid(value)) {
-        const found = await model.findOne({
-          _id: value,
-          ...(shouldFilterDeleted ? { deletedAt: null } : {}),
-          ...filter,
-        });
-        if (!found) throw new Error(`${label} not found or invalid hierarchy`);
-        return found._id.toString();
-      }
-
-      const doc = await model.findOne({
-        slug: value,
+      const filter = {
+        ...extra,
         ...(shouldFilterDeleted ? { deletedAt: null } : {}),
-        ...filter,
-      });
-
-      if (!doc) throw new Error(`${label} with slug '${value}' not found`);
+      };
+      const doc = mongoose.Types.ObjectId.isValid(value)
+        ? await model.findOne({ _id: value, ...filter })
+        : await model.findOne({ slug: value, ...filter });
+      if (!doc) throw new Error(`${label} not found`);
       return doc._id.toString();
     };
 
@@ -777,38 +710,33 @@ export const getGradeNextQuestions = async (req, res) => {
       enterprise: enterpriseId,
     });
 
-    // ---------- Build query ----------
-    const params = {
-      enterprise: enterpriseId,
-      ...(classId && { class: classId }),
-      ...(subjectId && { subject: subjectId }),
-      ...(topicId && { topic: topicId }),
-      ...(subtopicId && { subtopic: subtopicId }),
-      ...(levelId && { level: levelId }),
-    };
-
+    const params = { enterprise: enterpriseId };
+    if (classId) params.class = classId;
+    if (subjectId) params.subject = subjectId;
+    if (topicId) params.topic = topicId;
+    if (subtopicId) params.subtopic = subtopicId;
+    if (levelId) params.level = levelId;
     if (shouldFilterDeleted) params.deletedAt = null;
     if (image === "true") params["image.files.0"] = { $exists: true };
 
-    // ✅ Review filters (at DB level)
-    if (reviewed === "true") {
-      params["review.reviewedAt"] = { $exists: true };
-    } else if (reviewed === "false") {
-      params["review.reviewedAt"] = { $exists: false };
+    // --- Review filter fix ---
+    const reviewFilter = {};
+    if (reviewed === "true") reviewFilter.reviewedAt = { $ne: null };
+    if (reviewed === "false")
+      reviewFilter.$or = [
+        { reviewedAt: null },
+        { reviewedAt: { $exists: false } },
+      ];
+    if (approved === "true") reviewFilter.approved = true;
+    if (approved === "false") reviewFilter.approved = false;
+
+    if (Object.keys(reviewFilter).length > 0) {
+      const reviewIds = await Review.find(reviewFilter).select("_id").lean();
+      params.review = { $in: reviewIds.map((r) => r._id) };
     }
 
-    if (approved === "true") {
-      params["review.approved"] = true;
-    } else if (approved === "false") {
-      params["review.approved"] = false;
-    }
-
-    // ---------- Sorting ----------
-    const [sortField = "createdAt", sortDirection = "desc"] = sort.split(":");
-    const sortOption = { [sortField]: sortDirection === "asc" ? 1 : -1 };
-
-    // ---------- Pagination ----------
-    const skip = (numericPage - 1) * numericLimit;
+    const [sortField, sortDir] = sort.split(":");
+    const sortOption = { [sortField]: sortDir === "asc" ? 1 : -1 };
 
     const [questions, total] = await Promise.all([
       Question.find(params, "-__v -slug")
@@ -823,8 +751,7 @@ export const getGradeNextQuestions = async (req, res) => {
         ])
         .skip(shouldPaginate ? skip : 0)
         .limit(shouldPaginate ? numericLimit : 0)
-        .lean()
-        .exec(),
+        .lean(),
       Question.countDocuments(params),
     ]);
 
