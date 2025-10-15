@@ -110,6 +110,9 @@ export const getAllQuestion = async (
   reviewed = null,
   userId = null,
   image = false,
+  classId = null,
+  subjectId = null,
+  topicId = null,
   role = null,
   page = 1,
   limit = 20
@@ -127,6 +130,15 @@ export const getAllQuestion = async (
     }
     if (image) {
       query.push(`image=${image}`);
+    }
+    if (classId) {
+      query.push(`classId=${classId}`);
+    }
+    if (subjectId) {
+      query.push(`subjectId=${subjectId}`);
+    }
+    if (topicId) {
+      query.push(`topicId=${topicId}`);
     }
     const response = await api.get(
       `/question?filterDeleted=${

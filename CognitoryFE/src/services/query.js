@@ -136,9 +136,30 @@ export const useQueryObject = ({
   }, [shouldFetchQuestions, approved, reviewed, userId, pathname]);
 
   const questionsQuery = useQuery({
-    queryKey: ["questions", approved, reviewed, userId, image, page, role],
+    queryKey: [
+      "questions",
+      approved,
+      reviewed,
+      userId,
+      image,
+      classId,
+      subjectId,
+      topicId,
+      page,
+      role,
+    ],
     queryFn: () =>
-      getAllQuestion(approved, reviewed, userId, image, role, page),
+      getAllQuestion(
+        approved,
+        reviewed,
+        userId,
+        image,
+        classId,
+        subjectId,
+        topicId,
+        role,
+        page
+      ),
     enabled: isReadyForQuery,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
