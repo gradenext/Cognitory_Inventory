@@ -36,78 +36,26 @@ if (!JWT_SECRET) throw new Error("JWT_SECRET is not set in environment");
 
 export const getAllUser = async (req, res) => {
   try {
-    // Exclude super users if requester is not super
+    // Filter: exclude super users if requester is not super
     const filter = req.user.role === "super" ? {} : { role: { $ne: "super" } };
 
+    // Fetch only necessary fields
     const users = await User.find(filter, "-password -__v -slug")
       .populate("approvedBy", "name")
       .lean();
 
-    // Get IDs of users with role 'user'
-    const userOnly = users.filter((u) => u.role === "user");
-    const userOnlyIds = userOnly.map((u) => u._id);
-
-    // Fetch all questions created by those users
-    const questions = await Question.find({ creator: { $in: userOnlyIds } })
-      .populate("review", "approved reviewedAt rating")
-      .lean();
-
-    // Build analytics map
-    const statsMap = {};
-
-    for (const q of questions) {
-      const userId = q.creator?.toString();
-      if (!userId) continue;
-
-      if (!statsMap[userId]) {
-        statsMap[userId] = {
-          questionCount: 0,
-          reviewedCount: 0,
-          approvedCount: 0,
-          unapprovedCount: 0,
-          totalRating: 0,
-          ratingCount: 0,
-        };
-      }
-
-      const s = statsMap[userId];
-      s.questionCount++;
-
-      if (q.review?.reviewedAt) {
-        s.reviewedCount++;
-        if (q.review.approved === true) {
-          s.approvedCount++;
-        } else {
-          s.unapprovedCount++;
-        }
-
-        if (typeof q.review.rating === "number") {
-          s.totalRating += q.review.rating;
-          s.ratingCount++;
-        }
-      }
-    }
-
-    // Attach analytics only to role "user"
+    // Transform users to include only question count
     const finalUsers = users.map((user) => {
-      if (user.role === "user") {
-        const stat = statsMap[user._id.toString()] || {};
-        const avgRating =
-          stat.ratingCount > 0
-            ? Number((stat.totalRating / stat.ratingCount).toFixed(2))
-            : null;
+      const questionCount = Array.isArray(user.questions)
+        ? user.questions.length
+        : 0;
 
-        return {
-          ...user,
-          questionCount: stat.questionCount || 0,
-          reviewedCount: stat.reviewedCount || 0,
-          approvedCount: stat.approvedCount || 0,
-          unapprovedCount: stat.unapprovedCount || 0,
-          averageRating: avgRating,
-        };
-      }
+      const { questions, ...rest } = user; // remove question IDs
 
-      return user; // no stats for other roles
+      return {
+        ...rest,
+        questionCount,
+      };
     });
 
     return res.json({
