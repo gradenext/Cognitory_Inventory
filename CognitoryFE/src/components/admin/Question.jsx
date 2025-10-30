@@ -3,10 +3,12 @@ import { useQueryObject } from "../../services/query";
 import QuestionCard from "../shared/QuestionCard";
 import Pagination from "../shared/Pagination";
 import ToggleSwitch from "../shared/ToogleSwitch";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Select from "../shared/Select";
+import { useSearchParams } from "react-router-dom";
 
 const Question = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [imageOnly, setImageOnly] = useState(false);
   const [classId, setClassId] = useState(null);
   const [subjectId, setSubjectId] = useState(null);
@@ -19,6 +21,7 @@ const Question = () => {
       topicId,
       classId,
       enterpriseId: import.meta.env.VITE_ENTERPRISE_ID,
+      pageNumber: searchParams.get("page"),
     }),
     [imageOnly, subjectId, topicId, classId]
   );
@@ -50,6 +53,14 @@ const Question = () => {
     [topics]
   );
 
+  useEffect(() => {
+    const pageNumber = searchParams.get("page");
+    if (!pageNumber) {
+      setSearchParams({ page: 1 });
+    }
+    setPage(pageNumber);
+  }, [searchParams]);
+
   return (
     <div className="w-full px-6 py-8 space-y-6">
       {/* Heading Always Shown */}
@@ -63,7 +74,10 @@ const Question = () => {
 
         <Pagination
           data={questions?.data}
-          onPageChange={(newPage) => setPage(newPage)}
+          onPageChange={(newPage) => {
+            setPage(newPage);
+            setSearchParams({ page: newPage });
+          }}
         />
 
         <div className="w-full flex justify-between items-center my-4">

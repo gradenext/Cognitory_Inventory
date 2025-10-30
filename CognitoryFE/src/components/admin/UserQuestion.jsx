@@ -1,21 +1,31 @@
 import { Loader2 } from "lucide-react";
 import { useQueryObject } from "../../services/query";
 import Pagination from "../shared/Pagination";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import QuestionCard from "../shared/QuestionCard";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ToggleSwitch from "../shared/ToogleSwitch";
 
 const UserQuestion = () => {
   const { userId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [imageOnly, setImageOnly] = useState(false);
   const { questions, questionsQuery, setPage } = useQueryObject({
     userId,
     image: imageOnly,
+    pageNumber: searchParams.get("page"),
   });
   const isLoading = questionsQuery?.isLoading;
   const total = questions?.data?.total ?? "-";
   const list = questions?.data?.questions || [];
+
+  useEffect(() => {
+    const pageNumber = searchParams.get("page");
+    if (!pageNumber) {
+      setSearchParams({ page: 1 });
+    }
+    setPage(pageNumber);
+  }, [searchParams]);
 
   return (
     <div className="w-full px-6 py-8 space-y-6">
@@ -30,7 +40,10 @@ const UserQuestion = () => {
 
         <Pagination
           data={questions?.data}
-          onPageChange={(newPage) => setPage(newPage)}
+          onPageChange={(newPage) => {
+            setPage(newPage);
+            setSearchParams({ page: newPage });
+          }}
         />
 
         <div className="w-full flex justify-between items-center my-4">

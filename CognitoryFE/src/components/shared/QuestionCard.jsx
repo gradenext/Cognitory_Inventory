@@ -10,7 +10,7 @@ import {
 import { useSelector } from "react-redux";
 import { deleteQuestion } from "../../services/deleteAPIs";
 import Modal from "./Modal";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { errorToast, successToast } from "../toast/Toast";
 
 const Chip = ({ label, color }) => (
@@ -51,6 +51,7 @@ const QuestionCard = ({
 }) => {
   const navigate = useNavigate();
   const role = useSelector((state) => state?.user?.user?.role);
+  const [searchParams] = useSearchParams();
   const [isOpen, setIsOpen] = useState(shouldOpen);
   const [showDelete, setShowDelete] = useState(false);
   const [loading, setLoading] = useState(shouldOpen);
@@ -154,7 +155,16 @@ const QuestionCard = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/${role}/question/edit/${questionId}`);
+                  navigate(
+                    `/${role}/question/edit/${questionId}?page=${searchParams.get(
+                      "page"
+                    )}`,
+                    {
+                      state: {
+                        page: searchParams.get("page"),
+                      },
+                    }
+                  );
                 }}
                 className="bg-white p-2 rounded-lg cursor-pointer"
               >

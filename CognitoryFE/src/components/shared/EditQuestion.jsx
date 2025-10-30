@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useCallback, Suspense } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 import { editQuestionSchema } from "../../validations/question";
@@ -17,6 +22,8 @@ import { getQuestionById, updateQuestion } from "../../services/getAPIs";
 const EditQuestion = () => {
   const { questionId } = useParams();
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({
     text: "",
     textType: "",
@@ -134,7 +141,11 @@ const EditQuestion = () => {
 
       const response = await updateQuestion(questionId, payload);
       successToast(response?.message || "Question updated successfully");
-      navigate("/user/question/created");
+      navigate(
+        `/user/question/created?page=${
+          searchParams?.get("page") || state?.page
+        }`
+      );
     } catch (err) {
       errorToast(
         err?.response?.data?.message ||

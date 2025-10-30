@@ -1,16 +1,27 @@
-import React from "react";
+import { useEffect } from "react";
 import { useQueryObject } from "../../services/query";
 import QuestionCard from "../shared/QuestionCard";
 import { Loader2 } from "lucide-react";
 import Pagination from "../shared/Pagination";
+import { useSearchParams } from "react-router-dom";
 
 const CreatedQuestion = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { questions, questionsQuery, setPage } = useQueryObject({
     reviewed: false,
+    pageNumber: searchParams.get("page"),
   });
   const isLoading = questionsQuery?.isLoading;
   const total = questions?.data?.total ?? "-";
   const list = questions?.data?.questions || [];
+
+  useEffect(() => {
+    const pageNumber = searchParams.get("page");
+    if (!pageNumber) {
+      setSearchParams({ page: 1 });
+    }
+    setPage(pageNumber);
+  }, [searchParams]);
 
   return (
     <div className="w-full px-6 py-8 space-y-6">
@@ -25,7 +36,10 @@ const CreatedQuestion = () => {
 
         <Pagination
           data={questions?.data}
-          onPageChange={(newPage) => setPage(newPage)}
+          onPageChange={(newPage) => {
+            setPage(newPage);
+            setSearchParams({ page: newPage });
+          }}
         />
       </div>
 

@@ -24,11 +24,12 @@ export const useQueryObject = ({
   reviewed = null,
   userId = null,
   image = false,
+  pageNumber = null,
 }) => {
   const { pathname } = useLocation();
   const role = useSelector((state) => state?.user?.user?.role);
   const token = localStorage.getItem("token");
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(pageNumber ? pageNumber : 1);
 
   const isLoggedIn = !!token;
 
