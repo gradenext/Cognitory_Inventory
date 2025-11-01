@@ -115,7 +115,7 @@ export const getAllQuestion = async (
   topicId = null,
   role = null,
   page = 1,
-  limit = 2
+  limit = 20
 ) => {
   try {
     let query = [""];
