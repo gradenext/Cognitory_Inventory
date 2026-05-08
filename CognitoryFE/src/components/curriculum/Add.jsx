@@ -17,7 +17,7 @@ import { useSelector } from "react-redux";
 import { Loader2 } from "lucide-react";
 import { errorToast, successToast } from "../toast/Toast";
 
-const rankOptions = Array.from({ length: 5 }, (_, i) => ({
+const rankOptions = Array.from({ length: 6 }, (_, i) => ({
   label: `Rank ${i + 1}`,
   value: i + 1,
 }));

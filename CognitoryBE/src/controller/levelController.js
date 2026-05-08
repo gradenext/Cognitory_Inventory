@@ -63,7 +63,7 @@ export const createLevel = async (req, res) => {
       await verifyModelReferences(refsToCheck, session);
 
       const subtopic = await Subtopic.findById(subtopicId).session(session);
-      const maxLevels = Number(process.env.MAX_LEVELS_PER_SUBTOPIC) || 5;
+      const maxLevels = Number(process.env.MAX_LEVELS_PER_SUBTOPIC) || 6;
 
       if (subtopic?.levels?.length >= maxLevels) {
         throw new Error(`Maximum ${maxLevels} levels per subtopic allowed`);
