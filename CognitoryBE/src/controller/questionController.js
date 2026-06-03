@@ -8,7 +8,7 @@ import Subject from "../models/Subject.js";
 import Topic from "../models/Topic.js";
 import Subtopic from "../models/Subtopic.js";
 import Level from "../models/Level.js";
-import { editQuestionSchema, questionSchema } from "../validations/question.js";
+import { editQuestionSchema, moveQuestionSchema, questionSchema } from "../validations/question.js";
 import { validateWithZod } from "../validations/validate.js";
 import handleError from "../helper/handleError.js";
 import handleSuccess from "../helper/handleSuccess.js";
@@ -573,6 +573,108 @@ export const softDeleteQuestion = async (req, res) => {
     }
 
     return handleError(res, err, "Failed to soft delete question", 500);
+  } finally {
+    await session.endSession();
+  }
+};
+
+export const moveQuestion = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const { questionId } = req.params;
+    const { enterpriseId, classId, subjectId, topicId, subtopicId, levelId } =
+      req.body;
+
+    // ------------------ Zod Validation ------------------
+    const validationResult = validateWithZod(moveQuestionSchema, {
+      enterpriseId,
+      classId,
+      subjectId,
+      topicId,
+      subtopicId,
+      levelId,
+    });
+    if (!validationResult.success) {
+      return handleError(
+        res,
+        { errors: validationResult.errors },
+        "Validation Error",
+        406
+      );
+    }
+
+    // ------------------ ID Validation ------------------
+    const refsToCheck = [
+      { model: Question, id: questionId, key: "Question ID" },
+      { model: Enterprise, id: enterpriseId, key: "Enterprise ID" },
+      { model: Class, id: classId, key: "Class ID" },
+      { model: Subject, id: subjectId, key: "Subject ID" },
+      { model: Topic, id: topicId, key: "Topic ID" },
+      { model: Subtopic, id: subtopicId, key: "Subtopic ID" },
+      { model: Level, id: levelId, key: "Level ID" },
+    ];
+
+    const invalidIds = isValidMongoId(refsToCheck);
+    if (invalidIds.length > 0) {
+      return handleError(res, {}, `Invalid ${invalidIds.join(", ")}`, 406);
+    }
+
+    // ------------------ Transaction ------------------
+    const updatedQuestion = await session.withTransaction(async () => {
+      await verifyModelReferences(refsToCheck, session);
+
+      const existing = await Question.findOne(
+        { _id: questionId, deletedAt: null },
+        null,
+        { session }
+      );
+
+      if (!existing) {
+        throw new Error("Question not found or already deleted");
+      }
+
+      const moved = await Question.findByIdAndUpdate(
+        questionId,
+        {
+          enterprise: enterpriseId,
+          class: classId,
+          subject: subjectId,
+          topic: topicId,
+          subtopic: subtopicId,
+          level: levelId,
+        },
+        { new: true, runValidators: true, session }
+      )
+        .populate([
+          { path: "enterprise", select: "_id name" },
+          { path: "class", select: "_id name" },
+          { path: "subject", select: "_id name" },
+          { path: "topic", select: "_id name" },
+          { path: "subtopic", select: "_id name" },
+          { path: "level", select: "_id name rank" },
+          { path: "creator", select: "_id name" },
+          { path: "review", select: "-__v" },
+        ])
+        .select("-__v -slug")
+        .session(session);
+
+      return moved;
+    });
+
+    return handleSuccess(
+      res,
+      updatedQuestion,
+      "Question moved successfully",
+      200
+    );
+  } catch (err) {
+    console.error("Move question error:", err);
+
+    if (err.message?.includes("not found")) {
+      return handleError(res, {}, err.message, 404);
+    }
+    return handleError(res, err, "Failed to move question", 500);
   } finally {
     await session.endSession();
   }

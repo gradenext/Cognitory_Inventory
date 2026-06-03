@@ -6,6 +6,7 @@ import {
   getGradeNextQuestions,
   getOneUnreviewedQuestion,
   getQuestionById,
+  moveQuestion,
   softDeleteQuestion,
 } from "../controller/questionController.js";
 import { authMiddleware, isAdmin } from "../middleware/auth.js";
@@ -13,6 +14,7 @@ import { authMiddleware, isAdmin } from "../middleware/auth.js";
 const router = express.Router();
 
 router.post("/", authMiddleware, createQuestion);
+router.patch("/:questionId/move", authMiddleware, isAdmin, moveQuestion);
 router.patch("/:questionId", authMiddleware, editQuestion);
 router.get("/", authMiddleware, getAllQuestions);
 router.get("/:questionId", authMiddleware, getQuestionById);

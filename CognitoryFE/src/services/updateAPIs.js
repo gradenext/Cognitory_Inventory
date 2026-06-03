@@ -1,5 +1,15 @@
 import { api } from "./api";
 
+export const moveQuestion = async (questionId, data) => {
+  try {
+    const response = await api.patch(`/question/${questionId}/move`, data);
+    return response?.data;
+  } catch (error) {
+    console.error("Move question error:", error);
+    throw error;
+  }
+};
+
 export const updateEnterprise = async (enterpriseId, data) => {
   try {
     const response = await api.patch(`/enterprise/${enterpriseId}`, data);

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  ArrowLeftRight,
   CheckCircle,
   ChevronDown,
   Edit,
@@ -10,6 +11,7 @@ import {
 import { useSelector } from "react-redux";
 import { deleteQuestion } from "../../services/deleteAPIs";
 import Modal from "./Modal";
+import MoveQuestionModal from "./MoveQuestionModal";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { errorToast, successToast } from "../toast/Toast";
 
@@ -54,6 +56,7 @@ const QuestionCard = ({
   const [searchParams] = useSearchParams();
   const [isOpen, setIsOpen] = useState(shouldOpen);
   const [showDelete, setShowDelete] = useState(false);
+  const [showMove, setShowMove] = useState(false);
   const [loading, setLoading] = useState(shouldOpen);
 
   const handleDelete = async (e) => {
@@ -169,6 +172,19 @@ const QuestionCard = ({
                 className="bg-white p-2 rounded-lg cursor-pointer"
               >
                 <Edit className="h-4 w-4 text-black" />
+              </button>
+            )}
+
+            {!deletedAt && role !== "user" && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMove(true);
+                }}
+                className="bg-white/10 p-2 rounded-lg cursor-pointer hover:bg-white/20"
+                title="Move question"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
               </button>
             )}
 
@@ -322,6 +338,13 @@ const QuestionCard = ({
           </div>
         </div>
       </div>
+
+      {showMove && (
+        <MoveQuestionModal
+          question={question}
+          onClose={() => setShowMove(false)}
+        />
+      )}
 
       {showDelete && (
         <Modal

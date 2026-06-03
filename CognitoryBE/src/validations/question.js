@@ -80,6 +80,32 @@ export const questionSchema = z
     }
   });
 
+export const moveQuestionSchema = z.object({
+  enterpriseId: z
+    .string({ required_error: "Enterprise ID is required" })
+    .length(24, "Enterprise ID must be a valid 24-character ObjectId"),
+
+  classId: z
+    .string({ required_error: "Class ID is required" })
+    .length(24, "Class ID must be a valid 24-character ObjectId"),
+
+  subjectId: z
+    .string({ required_error: "Subject ID is required" })
+    .length(24, "Subject ID must be a valid 24-character ObjectId"),
+
+  topicId: z
+    .string({ required_error: "Topic ID is required" })
+    .length(24, "Topic ID must be a valid 24-character ObjectId"),
+
+  subtopicId: z
+    .string({ required_error: "Subtopic ID is required" })
+    .length(24, "Subtopic ID must be a valid 24-character ObjectId"),
+
+  levelId: z
+    .string({ required_error: "Level ID is required" })
+    .length(24, "Level ID must be a valid 24-character ObjectId"),
+});
+
 export const editQuestionSchema = z
   .object({
     text: z
