@@ -16,6 +16,7 @@ import {
   updateLesson,
   deleteLesson,
   uploadLessonFile,
+  resyncAllCourses,
 } from "../controller/courseController.js";
 import {
   createAssignment,
@@ -66,5 +67,8 @@ router.post("/assignment/:assignmentId/upload", authMiddleware, isAdmin, uploadA
 
 // Re-sync all published assignments for a course to GradeNext
 router.post("/:courseId/assignment/resync", authMiddleware, isAdmin, resyncCourseAssignments);
+
+// Re-sync ALL published courses (+ modules + lessons) to GradeNext
+router.post("/resync/all", authMiddleware, isAdmin, resyncAllCourses);
 
 export default router;

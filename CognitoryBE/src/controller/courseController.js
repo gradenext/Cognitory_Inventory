@@ -587,3 +587,62 @@ export const uploadLessonFile = async (req, res) => {
     return handleError(res, err, "Failed to upload file", 500);
   }
 };
+
+export const resyncAllCourses = async (req, res) => {
+  try {
+    const gradeNextUrl = process.env.GRADENEXT_API_URL;
+    const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
+    if (!gradeNextUrl || !syncSecret) {
+      return handleError(res, {}, "GRADENEXT_API_URL or GRADENEXT_SYNC_SECRET env vars not configured", 500);
+    }
+
+    const courses = await Course.find({ status: "published", deletedAt: null }).lean();
+    if (!courses.length) return handleSuccess(res, { synced: 0 }, "No published courses to sync");
+
+    const results = await Promise.allSettled(
+      courses.map(async (course) => {
+        const courseId = course._id.toString();
+        const modules = await CourseModule.find({ course: courseId, deletedAt: null }).sort({ order: 1 }).lean();
+        const moduleIds = modules.map((m) => m._id);
+        const lessons = await CourseLesson.find({ module: { $in: moduleIds }, deletedAt: null }).sort({ order: 1 }).lean();
+
+        const modulesWithLessons = modules.map((mod) => ({
+          cognitory_id: mod._id.toString(),
+          title: mod.title,
+          description: mod.description,
+          order: mod.order,
+          lessons: lessons
+            .filter((l) => l.module.toString() === mod._id.toString())
+            .map((l) => ({
+              cognitory_id: l._id.toString(),
+              title: l.title,
+              description: l.description,
+              order: l.order,
+              file: l.file,
+            })),
+        }));
+
+        return fetch(`${gradeNextUrl}/api/courses/sync/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Sync-Secret": syncSecret },
+          body: JSON.stringify({
+            cognitory_id: courseId,
+            title: course.title,
+            slug: course.slug,
+            description: course.description,
+            course_type: course.type,
+            thumbnail_url: course.thumbnail?.url || "",
+            order: course.order,
+            modules: modulesWithLessons,
+          }),
+        });
+      })
+    );
+
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    return handleSuccess(res, { synced: succeeded, total: courses.length }, `Re-synced ${succeeded}/${courses.length} courses`);
+  } catch (err) {
+    console.error("Resync all courses error:", err);
+    return handleError(res, err, "Failed to re-sync courses", 500);
+  }
+};
