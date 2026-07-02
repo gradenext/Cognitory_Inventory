@@ -23,6 +23,10 @@ const Admin = () => {
       label: "Curriculum",
       path: `curriculum/${import.meta.env.VITE_ENTERPRISE_ID}`,
     },
+    {
+      label: "Courses",
+      path: "courses",
+    },
   ];
 
   return (

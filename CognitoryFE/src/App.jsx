@@ -28,6 +28,8 @@ import Review from "./components/admin/Review";
 import UserProfileAdmin from "./components/admin/UserProfileAdmin";
 import UserQuestion from "./components/admin/UserQuestion";
 import EditQuestion from "./components/shared/EditQuestion";
+import Courses from "./components/courses/Courses";
+import CourseDetail from "./components/courses/CourseDetail";
 
 function App() {
   const token = useSelector((state) => state?.user?.token);
@@ -80,6 +82,8 @@ function App() {
               path="curriculum/:enterpriseId/:classId/:subjectId/:topicId/:subtopicId"
               element={<Subtopic />}
             />
+            <Route path="courses" element={<Courses />} />
+            <Route path="courses/:courseId" element={<CourseDetail />} />
             <Route
               path="*"
               element={<Navigate to="/admin/my-profile" replace />}
@@ -111,6 +115,8 @@ function App() {
               path="curriculum/:enterpriseId/:classId/:subjectId/:topicId/:subtopicId"
               element={<Subtopic />}
             />
+            <Route path="courses" element={<Courses />} />
+            <Route path="courses/:courseId" element={<CourseDetail />} />
             <Route
               path="*"
               element={<Navigate to="/super/my-profile" replace />}

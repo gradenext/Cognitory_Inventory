@@ -1,29 +1,17 @@
-import express from "express";
-import {
-  createTopic,
-  getAllTopics,
-  getTopicById,
-  softUpdateTopicName,
-} from "../controller/topicController.js";
-import { authMiddleware, isAdmin } from "../middleware/auth.js";
 import Topic from "../models/Topic.js";
 import TopicContent from "../models/TopicContent.js";
+import Class from "../models/Class.js";
+import Subject from "../models/Subject.js";
 import handleError from "../helper/handleError.js";
 import handleSuccess from "../helper/handleSuccess.js";
 import isValidMongoId from "../helper/isMongoId.js";
 import { uploadCourseFile } from "../utils/courseUpload.js";
 
-const router = express.Router();
-
-// ── Topic CRUD ────────────────────────────────────────────────────────────────
-router.get("/", authMiddleware, getAllTopics);
-router.post("/", authMiddleware, isAdmin, createTopic);
-
-// ── Topic Content (must come before /:topicId to avoid param conflict) ────────
-
-router.get("/:topicId/content", authMiddleware, async (req, res) => {
+// ─── List content for a topic ─────────────────────────────────────────────────
+export const getTopicContents = async (req, res) => {
   try {
     const { topicId } = req.params;
+
     const invalid = isValidMongoId([{ id: topicId, key: "Topic ID" }]);
     if (invalid.length > 0) return handleError(res, {}, `Invalid ${invalid.join(", ")}`, 406);
 
@@ -36,9 +24,10 @@ router.get("/:topicId/content", authMiddleware, async (req, res) => {
     console.error("getTopicContents error:", err);
     return handleError(res, err, "Failed to fetch topic contents", 500);
   }
-});
+};
 
-router.post("/:topicId/content", authMiddleware, isAdmin, async (req, res) => {
+// ─── Create content item (no file yet) ───────────────────────────────────────
+export const createTopicContent = async (req, res) => {
   try {
     const { topicId } = req.params;
     const { title, description, order } = req.body;
@@ -53,10 +42,12 @@ router.post("/:topicId/content", authMiddleware, isAdmin, async (req, res) => {
       .populate("subject", "slug name");
     if (!topic) return handleError(res, {}, "Topic not found", 404);
 
+    // Extract grade number from class name (e.g. "Grade 3" → 3, or "3" → 3)
     const classNameStr = topic.class?.name || "";
     const gradeMatch = classNameStr.match(/\d+/);
     if (!gradeMatch) return handleError(res, {}, "Could not resolve grade from topic's class", 400);
     const grade = parseInt(gradeMatch[0], 10);
+
     const subjectSlug = topic.subject?.slug || topic.subject?.name?.toLowerCase().replace(/\s+/g, "-") || "";
 
     const content = await TopicContent.create({
@@ -69,15 +60,15 @@ router.post("/:topicId/content", authMiddleware, isAdmin, async (req, res) => {
       order: order ? Number(order) : 0,
     });
 
-    _syncTopicContents(topicId);
     return handleSuccess(res, content, "Content created successfully", 201);
   } catch (err) {
     console.error("createTopicContent error:", err);
     return handleError(res, err, "Failed to create topic content", 500);
   }
-});
+};
 
-router.patch("/:topicId/content/:contentId", authMiddleware, isAdmin, async (req, res) => {
+// ─── Update content item metadata ─────────────────────────────────────────────
+export const updateTopicContent = async (req, res) => {
   try {
     const { topicId, contentId } = req.params;
     const { title, description, order } = req.body;
@@ -96,15 +87,16 @@ router.patch("/:topicId/content/:contentId", authMiddleware, isAdmin, async (req
     if (order !== undefined) content.order = Number(order);
     await content.save();
 
-    _syncTopicContents(topicId);
+    await _syncTopicContents(topicId);
     return handleSuccess(res, content, "Content updated successfully");
   } catch (err) {
     console.error("updateTopicContent error:", err);
     return handleError(res, err, "Failed to update topic content", 500);
   }
-});
+};
 
-router.post("/:topicId/content/:contentId/upload", authMiddleware, isAdmin, async (req, res) => {
+// ─── Upload file for a content item ──────────────────────────────────────────
+export const uploadTopicContentFile = async (req, res) => {
   try {
     const { topicId, contentId } = req.params;
 
@@ -137,15 +129,16 @@ router.post("/:topicId/content/:contentId/upload", authMiddleware, isAdmin, asyn
     };
     await content.save();
 
-    _syncTopicContents(topicId);
+    await _syncTopicContents(topicId);
     return handleSuccess(res, content, "File uploaded successfully");
   } catch (err) {
     console.error("uploadTopicContentFile error:", err);
     return handleError(res, err, "Failed to upload file", 500);
   }
-});
+};
 
-router.delete("/:topicId/content/:contentId", authMiddleware, isAdmin, async (req, res) => {
+// ─── Soft delete ──────────────────────────────────────────────────────────────
+export const deleteTopicContent = async (req, res) => {
   try {
     const { topicId, contentId } = req.params;
 
@@ -161,29 +154,29 @@ router.delete("/:topicId/content/:contentId", authMiddleware, isAdmin, async (re
     content.deletedAt = new Date();
     await content.save();
 
-    _syncTopicContents(topicId);
+    await _syncTopicContents(topicId);
     return handleSuccess(res, {}, "Content deleted successfully");
   } catch (err) {
     console.error("deleteTopicContent error:", err);
     return handleError(res, err, "Failed to delete topic content", 500);
   }
-});
+};
 
-// ── Single topic + update (after content routes to avoid param conflict) ───────
-router.get("/:topicId", authMiddleware, getTopicById);
-router.patch("/:topicId", authMiddleware, isAdmin, softUpdateTopicName);
-
-// ── Internal sync helper ──────────────────────────────────────────────────────
+// ─── Internal: push full content list for a topic to GradeNext ───────────────
 async function _syncTopicContents(topicId) {
   const gradeNextUrl = process.env.GRADENEXT_API_URL;
   const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
   if (!gradeNextUrl || !syncSecret) return;
+
   try {
     const contents = await TopicContent.find({ topic: topicId, deletedAt: null }).sort({ order: 1 }).lean();
     if (!contents.length) return;
+
     const { topic_slug, subject_slug, grade } = contents[0];
     const payload = {
-      topic_slug, subject_slug, grade,
+      topic_slug,
+      subject_slug,
+      grade,
       contents: contents.map((c) => ({
         cognitory_id: c._id.toString(),
         title: c.title,
@@ -194,14 +187,16 @@ async function _syncTopicContents(topicId) {
         original_filename: c.file?.originalName || "",
       })),
     };
+
     fetch(`${gradeNextUrl}/api/topic-content/sync/`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Sync-Secret": syncSecret },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Sync-Secret": syncSecret,
+      },
       body: JSON.stringify(payload),
-    }).catch((err) => console.error("GradeNext sync failed:", err.message));
+    }).catch((err) => console.error("GradeNext topic-content sync failed (non-fatal):", err.message));
   } catch (err) {
     console.error("_syncTopicContents error:", err);
   }
 }
-
-export default router;

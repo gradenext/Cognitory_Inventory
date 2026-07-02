@@ -23,6 +23,10 @@ const Super = () => {
       label: "Curriculums",
       path: "curriculum",
     },
+    {
+      label: "Courses",
+      path: "courses",
+    },
   ];
 
   return (
