@@ -21,20 +21,22 @@ const validateFile = async (filePath) => {
 
 const uploadSingle = (filePath, publicId, folderPath) => {
   return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
+    cloudinary.uploader.upload_large(
+      filePath,
       {
         folder: folderPath || "Cognitory/courses",
         resource_type: "raw",
         type: "upload",
         access_mode: "public",
         public_id: publicId,
+        chunk_size: 6 * 1024 * 1024, // 6MB chunks — under Cloudinary's 10MB single-upload limit
+        timeout: 300000,
       },
       (error, result) => {
         if (error) return reject(error);
         resolve(result);
       }
     );
-    fs.createReadStream(filePath).on("error", reject).pipe(uploadStream);
   });
 };
 
