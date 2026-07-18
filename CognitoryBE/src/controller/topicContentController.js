@@ -119,7 +119,7 @@ export const uploadTopicContentFile = async (req, res) => {
 
     const folderPath = `Cognitory/topic-content/${content.subject_slug}/grade-${content.grade}/${content.topic_slug}`;
     const publicId = `content_${contentId}_${Date.now()}`;
-    const result = await uploadCourseFile(file.tempFilePath, publicId, folderPath);
+    const result = await uploadCourseFile(file.tempFilePath, publicId, folderPath, ext);
 
     content.file = {
       url: result.secure_url,

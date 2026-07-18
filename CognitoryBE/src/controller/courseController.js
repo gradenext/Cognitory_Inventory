@@ -566,7 +566,7 @@ export const uploadLessonFile = async (req, res) => {
     const folderPath = `Cognitory/courses/${course?.slug || lesson.course.toString()}`;
     const publicId = `lesson_${lessonId}_${Date.now()}`;
 
-    const result = await uploadCourseFile(file.tempFilePath, publicId, folderPath);
+    const result = await uploadCourseFile(file.tempFilePath, publicId, folderPath, ext);
 
     const updatedLesson = await CourseLesson.findByIdAndUpdate(
       lessonId,

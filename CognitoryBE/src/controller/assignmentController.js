@@ -228,7 +228,7 @@ export const uploadAssignmentFile = async (req, res) => {
     const folderPath = `Cognitory/assignments/${course?.slug || assignment.course.toString()}`;
     const publicId = `assignment_${assignmentId}_${Date.now()}`;
 
-    const result = await uploadCourseFile(file.tempFilePath, publicId, folderPath);
+    const result = await uploadCourseFile(file.tempFilePath, publicId, folderPath, ext);
 
     const updated = await CourseAssignment.findByIdAndUpdate(
       assignmentId,

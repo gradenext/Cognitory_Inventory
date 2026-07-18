@@ -1,16 +1,26 @@
 import fs from "fs";
-import { v2 as cloudinary } from "cloudinary";
+import path from "path";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
-const MAX_FILE_SIZE_MB = 100;
+const MAX_FILE_SIZE_MB = 500;
 const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
-const UPLOAD_RETRIES = 2;
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  timeout: 120000,
+const r2 = new S3Client({
+  region: "auto",
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
 });
+
+const MIME_TYPES = {
+  pdf: "application/pdf",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  mp4: "video/mp4",
+  mp3: "audio/mpeg",
+};
 
 const validateFile = async (filePath) => {
   const stats = await fs.promises.stat(filePath);
@@ -19,39 +29,27 @@ const validateFile = async (filePath) => {
   }
 };
 
-const uploadSingle = (filePath, publicId, folderPath) => {
-  return new Promise((resolve, reject) => {
-    cloudinary.uploader.upload_large(
-      filePath,
-      {
-        folder: folderPath || "Cognitory/courses",
-        resource_type: "raw",
-        type: "upload",
-        access_mode: "public",
-        public_id: publicId,
-        chunk_size: 6 * 1024 * 1024, // 6MB chunks — under Cloudinary's 10MB single-upload limit
-        timeout: 300000,
-      },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
-  });
-};
-
-export const uploadCourseFile = async (filePath, publicId, folderPath) => {
+export const uploadCourseFile = async (filePath, publicId, folderPath, fileExt = "") => {
   await validateFile(filePath);
 
-  for (let attempt = 0; attempt <= UPLOAD_RETRIES; attempt++) {
-    try {
-      return await uploadSingle(filePath, publicId, folderPath);
-    } catch (err) {
-      if (attempt === UPLOAD_RETRIES) {
-        console.error("Cloudinary course upload failed after retries:", err);
-        throw new Error("Failed to upload course file");
-      }
-      console.warn(`Retrying course upload (${attempt + 1}/${UPLOAD_RETRIES})...`);
-    }
-  }
+  const bucket = process.env.R2_BUCKET_NAME;
+  const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+  const key = `${folderPath || "courses"}/${publicId}${fileExt ? `.${fileExt}` : ""}`;
+  const contentType = MIME_TYPES[fileExt?.toLowerCase()] || "application/octet-stream";
+
+  const fileBuffer = await fs.promises.readFile(filePath);
+
+  await r2.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: fileBuffer,
+      ContentType: contentType,
+    })
+  );
+
+  return {
+    secure_url: `${publicUrl}/${key}`,
+    public_id: key,
+  };
 };

@@ -24,8 +24,7 @@ const Courses = () => {
     setLoading(true);
     const data = await getCourses(
       typeFilter !== "all" ? typeFilter : null,
-      statusFilter !== "all" ? statusFilter : null,
-      false
+      statusFilter !== "all" ? statusFilter : null
     );
     setCourses(data?.courses || []);
     setLoading(false);
