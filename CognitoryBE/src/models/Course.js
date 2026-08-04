@@ -36,6 +36,21 @@ const courseSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    price: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    stripe_product_id: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    stripe_price_id: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

@@ -5,6 +5,9 @@ export const courseSchema = z.object({
   type: z.enum(["ai", "standard"], { required_error: "Type must be 'ai' or 'standard'" }),
   description: z.string().optional(),
   order: z.number().optional(),
+  price: z.number().min(0).optional(),
+  stripe_product_id: z.string().optional(),
+  stripe_price_id: z.string().optional(),
 });
 
 export const updateCourseSchema = z.object({
@@ -13,6 +16,9 @@ export const updateCourseSchema = z.object({
   description: z.string().optional(),
   order: z.number().optional(),
   status: z.enum(["draft", "published"]).optional(),
+  price: z.number().min(0).optional(),
+  stripe_product_id: z.string().optional(),
+  stripe_price_id: z.string().optional(),
 });
 
 export const moduleSchema = z.object({

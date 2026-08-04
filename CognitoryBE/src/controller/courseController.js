@@ -16,13 +16,82 @@ import handleSuccess from "../helper/handleSuccess.js";
 import isValidMongoId from "../helper/isMongoId.js";
 import { uploadCourseFile } from "../utils/courseUpload.js";
 
+// ─── GradeNext sync helpers ──────────────────────────────────────────────────
+
+async function buildSyncPayload(courseId) {
+  const course = await Course.findOne({ _id: courseId, deletedAt: null }).lean();
+  if (!course) return null;
+
+  const modules = await CourseModule.find({ course: courseId, deletedAt: null }).sort({ order: 1 }).lean();
+  const moduleIds = modules.map((m) => m._id);
+  const lessons = await CourseLesson.find({ module: { $in: moduleIds }, deletedAt: null }).sort({ order: 1 }).lean();
+
+  const modulesWithLessons = modules.map((mod) => ({
+    cognitory_id: mod._id.toString(),
+    title: mod.title,
+    description: mod.description,
+    order: mod.order,
+    lessons: lessons
+      .filter((l) => l.module.toString() === mod._id.toString())
+      .map((l) => ({
+        cognitory_id: l._id.toString(),
+        title: l.title,
+        description: l.description,
+        order: l.order,
+        file: l.file,
+      })),
+  }));
+
+  return {
+    cognitory_id: course._id.toString(),
+    title: course.title,
+    slug: course.slug,
+    description: course.description,
+    course_type: course.type,
+    thumbnail_url: course.thumbnail?.url || "",
+    order: course.order,
+    price: course.price || 0,
+    stripe_product_id: course.stripe_product_id || "",
+    stripe_price_id: course.stripe_price_id || "",
+    modules: modulesWithLessons,
+  };
+}
+
+function fireSync(payload) {
+  const gradeNextUrl = process.env.GRADENEXT_API_URL;
+  const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
+  if (!gradeNextUrl || !syncSecret) return;
+  fetch(`${gradeNextUrl}/api/courses/sync/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Sync-Secret": syncSecret },
+    body: JSON.stringify(payload),
+  }).catch((err) => console.error("GradeNext sync failed (non-fatal):", err.message));
+}
+
+function fireUnsync(cognitory_id) {
+  const gradeNextUrl = process.env.GRADENEXT_API_URL;
+  const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
+  if (!gradeNextUrl || !syncSecret) return;
+  fetch(`${gradeNextUrl}/api/courses/unsync/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Sync-Secret": syncSecret },
+    body: JSON.stringify({ cognitory_id }),
+  }).catch((err) => console.error("GradeNext unsync failed (non-fatal):", err.message));
+}
+
 // ─── Course CRUD ────────────────────────────────────────────────────────────
 
 export const createCourse = async (req, res) => {
   try {
-    const { title, type, description, order } = req.body;
+    const { title, type, description, order, price, stripe_product_id, stripe_price_id } = req.body;
 
-    const validation = validateWithZod(courseSchema, { title, type, description, order: order ? Number(order) : undefined });
+    const validation = validateWithZod(courseSchema, {
+      title, type, description,
+      order: order ? Number(order) : undefined,
+      price: price !== undefined ? Number(price) : undefined,
+      stripe_product_id,
+      stripe_price_id,
+    });
     if (!validation.success) {
       return handleError(res, { errors: validation.errors }, "Validation Error", 406);
     }
@@ -32,6 +101,9 @@ export const createCourse = async (req, res) => {
       type,
       description,
       order: order ? Number(order) : 0,
+      price: price !== undefined ? Number(price) : 0,
+      stripe_product_id: stripe_product_id || '',
+      stripe_price_id: stripe_price_id || '',
       createdBy: req.user.userId,
     });
 
@@ -101,7 +173,7 @@ export const getCourseById = async (req, res) => {
 export const updateCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { title, type, description, order, status } = req.body;
+    const { title, type, description, order, status, price, stripe_product_id, stripe_price_id } = req.body;
 
     const invalid = isValidMongoId([{ id: courseId, key: "Course ID" }]);
     if (invalid.length > 0) {
@@ -114,6 +186,9 @@ export const updateCourse = async (req, res) => {
       description,
       order: order !== undefined ? Number(order) : undefined,
       status,
+      price: price !== undefined ? Number(price) : undefined,
+      stripe_product_id,
+      stripe_price_id,
     });
     if (!validation.success) {
       return handleError(res, { errors: validation.errors }, "Validation Error", 406);
@@ -125,13 +200,30 @@ export const updateCourse = async (req, res) => {
     if (description !== undefined) updates.description = description;
     if (order !== undefined) updates.order = Number(order);
     if (status !== undefined) updates.status = status;
+    if (price !== undefined) updates.price = Number(price);
+    if (stripe_product_id !== undefined) updates.stripe_product_id = stripe_product_id;
+    if (stripe_price_id !== undefined) updates.stripe_price_id = stripe_price_id;
+
+    const prevCourse = await Course.findOne({ _id: courseId, deletedAt: null }).lean();
+    if (!prevCourse) return handleError(res, {}, "Course not found", 404);
 
     const course = await Course.findOneAndUpdate(
       { _id: courseId, deletedAt: null },
       updates,
       { new: true, runValidators: true }
     );
-    if (!course) return handleError(res, {}, "Course not found", 404);
+
+    const wasPublished = prevCourse.status === "published";
+    const isNowDraft = course.status === "draft";
+    const isNowPublished = course.status === "published";
+
+    if (wasPublished && isNowDraft) {
+      // Course was unpublished — hide it on GradeNext
+      fireUnsync(courseId);
+    } else if (isNowPublished) {
+      // Course is published and something changed — push full sync
+      buildSyncPayload(courseId).then((payload) => { if (payload) fireSync(payload); });
+    }
 
     return handleSuccess(res, course, "Course updated successfully");
   } catch (err) {
@@ -150,15 +242,19 @@ export const deleteCourse = async (req, res) => {
       return handleError(res, {}, `Invalid ${invalid.join(", ")}`, 406);
     }
 
+    let wasPublished = false;
     await session.withTransaction(async () => {
       const course = await Course.findOne({ _id: courseId, deletedAt: null }).session(session);
       if (!course) throw new Error("Course not found");
+      wasPublished = course.status === "published";
 
       const now = new Date();
       await Course.findByIdAndUpdate(courseId, { deletedAt: now }, { session });
       await CourseModule.updateMany({ course: courseId, deletedAt: null }, { deletedAt: now }, { session });
       await CourseLesson.updateMany({ course: courseId, deletedAt: null }, { deletedAt: now }, { session });
     });
+
+    if (wasPublished) fireUnsync(courseId);
 
     return handleSuccess(res, {}, "Course deleted successfully");
   } catch (err) {
@@ -188,53 +284,7 @@ export const publishCourse = async (req, res) => {
     );
     if (!course) return handleError(res, {}, "Course not found", 404);
 
-    // Fetch modules and lessons to sync to GradeNext
-    const modules = await CourseModule.find({ course: courseId, deletedAt: null }).sort({ order: 1 }).lean();
-    const moduleIds = modules.map((m) => m._id);
-    const lessons = await CourseLesson.find({ module: { $in: moduleIds }, deletedAt: null }).sort({ order: 1 }).lean();
-
-    const modulesWithLessons = modules.map((mod) => ({
-      cognitory_id: mod._id.toString(),
-      title: mod.title,
-      description: mod.description,
-      order: mod.order,
-      lessons: lessons
-        .filter((l) => l.module.toString() === mod._id.toString())
-        .map((l) => ({
-          cognitory_id: l._id.toString(),
-          title: l.title,
-          description: l.description,
-          order: l.order,
-          file: l.file,
-        })),
-    }));
-
-    const syncPayload = {
-      cognitory_id: course._id.toString(),
-      title: course.title,
-      slug: course.slug,
-      description: course.description,
-      course_type: course.type,
-      thumbnail_url: course.thumbnail?.url || "",
-      order: course.order,
-      modules: modulesWithLessons,
-    };
-
-    // Push to GradeNext — fire and forget, don't fail if it errors
-    const gradeNextUrl = process.env.GRADENEXT_API_URL;
-    const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
-    if (gradeNextUrl && syncSecret) {
-      fetch(`${gradeNextUrl}/api/courses/sync/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Sync-Secret": syncSecret,
-        },
-        body: JSON.stringify(syncPayload),
-      }).catch((syncErr) => {
-        console.error("GradeNext sync failed (non-fatal):", syncErr.message);
-      });
-    }
+    buildSyncPayload(courseId).then((payload) => { if (payload) fireSync(payload); });
 
     return handleSuccess(res, course, "Course published successfully");
   } catch (err) {
@@ -360,6 +410,11 @@ export const updateModule = async (req, res) => {
     );
     if (!module) return handleError(res, {}, "Module not found", 404);
 
+    const course = await Course.findOne({ _id: courseId, deletedAt: null }).lean();
+    if (course?.status === "published") {
+      buildSyncPayload(courseId).then((payload) => { if (payload) fireSync(payload); });
+    }
+
     return handleSuccess(res, module, "Module updated successfully");
   } catch (err) {
     console.error("Update module error:", err);
@@ -388,6 +443,11 @@ export const deleteModule = async (req, res) => {
       await CourseModule.findByIdAndUpdate(moduleId, { deletedAt: now }, { session });
       await CourseLesson.updateMany({ module: moduleId, deletedAt: null }, { deletedAt: now }, { session });
     });
+
+    const course = await Course.findOne({ _id: courseId, deletedAt: null }).lean();
+    if (course?.status === "published") {
+      buildSyncPayload(courseId).then((payload) => { if (payload) fireSync(payload); });
+    }
 
     return handleSuccess(res, {}, "Module deleted successfully");
   } catch (err) {
@@ -504,6 +564,11 @@ export const updateLesson = async (req, res) => {
     );
     if (!lesson) return handleError(res, {}, "Lesson not found", 404);
 
+    const course = await Course.findOne({ _id: courseId, deletedAt: null }).lean();
+    if (course?.status === "published") {
+      buildSyncPayload(courseId).then((payload) => { if (payload) fireSync(payload); });
+    }
+
     return handleSuccess(res, lesson, "Lesson updated successfully");
   } catch (err) {
     console.error("Update lesson error:", err);
@@ -530,6 +595,11 @@ export const deleteLesson = async (req, res) => {
       { new: true }
     );
     if (!lesson) return handleError(res, {}, "Lesson not found", 404);
+
+    const course = await Course.findOne({ _id: courseId, deletedAt: null }).lean();
+    if (course?.status === "published") {
+      buildSyncPayload(courseId).then((payload) => { if (payload) fireSync(payload); });
+    }
 
     return handleSuccess(res, {}, "Lesson deleted successfully");
   } catch (err) {
@@ -581,6 +651,11 @@ export const uploadLessonFile = async (req, res) => {
       { new: true }
     );
 
+    const parentCourse = await Course.findOne({ _id: updatedLesson.course, deletedAt: null }).lean();
+    if (parentCourse?.status === "published") {
+      buildSyncPayload(updatedLesson.course.toString()).then((payload) => { if (payload) fireSync(payload); });
+    }
+
     return handleSuccess(res, updatedLesson, "File uploaded successfully");
   } catch (err) {
     console.error("Upload lesson file error:", err);
@@ -601,41 +676,8 @@ export const resyncAllCourses = async (req, res) => {
 
     const results = await Promise.allSettled(
       courses.map(async (course) => {
-        const courseId = course._id.toString();
-        const modules = await CourseModule.find({ course: courseId, deletedAt: null }).sort({ order: 1 }).lean();
-        const moduleIds = modules.map((m) => m._id);
-        const lessons = await CourseLesson.find({ module: { $in: moduleIds }, deletedAt: null }).sort({ order: 1 }).lean();
-
-        const modulesWithLessons = modules.map((mod) => ({
-          cognitory_id: mod._id.toString(),
-          title: mod.title,
-          description: mod.description,
-          order: mod.order,
-          lessons: lessons
-            .filter((l) => l.module.toString() === mod._id.toString())
-            .map((l) => ({
-              cognitory_id: l._id.toString(),
-              title: l.title,
-              description: l.description,
-              order: l.order,
-              file: l.file,
-            })),
-        }));
-
-        return fetch(`${gradeNextUrl}/api/courses/sync/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Sync-Secret": syncSecret },
-          body: JSON.stringify({
-            cognitory_id: courseId,
-            title: course.title,
-            slug: course.slug,
-            description: course.description,
-            course_type: course.type,
-            thumbnail_url: course.thumbnail?.url || "",
-            order: course.order,
-            modules: modulesWithLessons,
-          }),
-        });
+        const payload = await buildSyncPayload(course._id.toString());
+        if (payload) fireSync(payload);
       })
     );
 

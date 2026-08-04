@@ -7,6 +7,44 @@ import handleSuccess from "../helper/handleSuccess.js";
 import isValidMongoId from "../helper/isMongoId.js";
 import { uploadCourseFile } from "../utils/courseUpload.js";
 
+// ─── GradeNext sync helpers ──────────────────────────────────────────────────
+
+function buildAssignmentPayload(assignment) {
+  return {
+    cognitory_id: assignment._id.toString(),
+    course_cognitory_id: assignment.course.toString(),
+    title: assignment.title,
+    description: assignment.description,
+    order: assignment.order,
+    file: assignment.file,
+    status: assignment.status,
+  };
+}
+
+function fireAssignmentSync(assignment) {
+  const gradeNextUrl = process.env.GRADENEXT_API_URL;
+  const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
+  if (!gradeNextUrl || !syncSecret) return;
+  fetch(`${gradeNextUrl}/api/assignments/sync/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Sync-Secret": syncSecret },
+    body: JSON.stringify(buildAssignmentPayload(assignment)),
+  }).catch((err) => console.error("GradeNext assignment sync failed (non-fatal):", err.message));
+}
+
+function fireAssignmentUnsync(cognitory_id) {
+  const gradeNextUrl = process.env.GRADENEXT_API_URL;
+  const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
+  if (!gradeNextUrl || !syncSecret) return;
+  fetch(`${gradeNextUrl}/api/assignments/unsync/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Sync-Secret": syncSecret },
+    body: JSON.stringify({ cognitory_id }),
+  }).catch((err) => console.error("GradeNext assignment unsync failed (non-fatal):", err.message));
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 export const createAssignment = async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -84,6 +122,8 @@ export const updateAssignment = async (req, res) => {
     );
     if (!assignment) return handleError(res, {}, "Assignment not found", 404);
 
+    if (assignment.status === "published") fireAssignmentSync(assignment);
+
     return handleSuccess(res, assignment, "Assignment updated successfully");
   } catch (err) {
     console.error("Update assignment error:", err);
@@ -107,6 +147,8 @@ export const deleteAssignment = async (req, res) => {
       { new: true }
     );
     if (!assignment) return handleError(res, {}, "Assignment not found", 404);
+
+    if (assignment.status === "published") fireAssignmentUnsync(assignmentId);
 
     return handleSuccess(res, {}, "Assignment deleted successfully");
   } catch (err) {
@@ -132,32 +174,7 @@ export const publishAssignment = async (req, res) => {
     );
     if (!assignment) return handleError(res, {}, "Assignment not found", 404);
 
-    const course = await Course.findById(courseId);
-
-    const syncPayload = {
-      cognitory_id: assignment._id.toString(),
-      course_cognitory_id: courseId,
-      title: assignment.title,
-      description: assignment.description,
-      order: assignment.order,
-      file: assignment.file,
-      status: "published",
-    };
-
-    const gradeNextUrl = process.env.GRADENEXT_API_URL;
-    const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
-    if (gradeNextUrl && syncSecret) {
-      fetch(`${gradeNextUrl}/api/assignments/sync/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Sync-Secret": syncSecret,
-        },
-        body: JSON.stringify(syncPayload),
-      }).catch((err) => {
-        console.error("GradeNext assignment sync failed (non-fatal):", err.message);
-      });
-    }
+    fireAssignmentSync(assignment);
 
     return handleSuccess(res, assignment, "Assignment published successfully");
   } catch (err) {
@@ -176,26 +193,12 @@ export const resyncCourseAssignments = async (req, res) => {
     const assignments = await CourseAssignment.find({ course: courseId, deletedAt: null, status: "published" });
     if (!assignments.length) return handleSuccess(res, { synced: 0 }, "No published assignments to sync");
 
-    const gradeNextUrl = process.env.GRADENEXT_API_URL;
-    const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
-    if (!gradeNextUrl || !syncSecret) return handleError(res, {}, "GradeNext sync env vars not configured", 500);
+    if (!process.env.GRADENEXT_API_URL || !process.env.GRADENEXT_SYNC_SECRET) {
+      return handleError(res, {}, "GradeNext sync env vars not configured", 500);
+    }
 
     const results = await Promise.allSettled(
-      assignments.map((a) =>
-        fetch(`${gradeNextUrl}/api/assignments/sync/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Sync-Secret": syncSecret },
-          body: JSON.stringify({
-            cognitory_id: a._id.toString(),
-            course_cognitory_id: courseId,
-            title: a.title,
-            description: a.description,
-            order: a.order,
-            file: a.file,
-            status: a.status,
-          }),
-        })
-      )
+      assignments.map((a) => fireAssignmentSync(a))
     );
 
     const succeeded = results.filter((r) => r.status === "fulfilled").length;
@@ -243,30 +246,7 @@ export const uploadAssignmentFile = async (req, res) => {
       { new: true }
     );
 
-    // Sync to GradeNext whenever a file is uploaded (regardless of publish status)
-    const gradeNextUrl = process.env.GRADENEXT_API_URL;
-    const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
-    if (gradeNextUrl && syncSecret) {
-      const syncPayload = {
-        cognitory_id: updated._id.toString(),
-        course_cognitory_id: updated.course.toString(),
-        title: updated.title,
-        description: updated.description,
-        order: updated.order,
-        file: updated.file,
-        status: updated.status,
-      };
-      fetch(`${gradeNextUrl}/api/assignments/sync/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Sync-Secret": syncSecret,
-        },
-        body: JSON.stringify(syncPayload),
-      }).catch((err) => {
-        console.error("GradeNext assignment sync after file upload failed (non-fatal):", err.message);
-      });
-    }
+    if (updated.status === "published") fireAssignmentSync(updated);
 
     return handleSuccess(res, updated, "File uploaded successfully");
   } catch (err) {
