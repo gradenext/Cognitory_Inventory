@@ -169,6 +169,70 @@ router.delete("/:topicId/content/:contentId", authMiddleware, isAdmin, async (re
   }
 });
 
+// ── Curriculum active/inactive toggle ────────────────────────────────────────
+router.patch("/:topicId/toggle-curriculum", authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { topicId } = req.params;
+    const invalid = isValidMongoId([{ id: topicId, key: "Topic ID" }]);
+    if (invalid.length > 0) return handleError(res, {}, `Invalid ${invalid.join(", ")}`, 406);
+
+    const topic = await Topic.findOne({ _id: topicId, deletedAt: null })
+      .populate("class", "name")
+      .populate("subject", "slug name");
+
+    if (!topic) return handleError(res, {}, "Topic not found", 404);
+
+    // Flip the toggle
+    topic.isActiveCurriculum = !topic.isActiveCurriculum;
+    await topic.save();
+
+    // Resolve grade number from class name (e.g. "Grade 4" → 4)
+    const classNameStr = topic.class?.name || "";
+    const gradeMatch = classNameStr.match(/\d+/);
+    if (!gradeMatch) {
+      return handleSuccess(res, { isActiveCurriculum: topic.isActiveCurriculum }, "Toggled (grade not resolvable, sync skipped)");
+    }
+    const grade = parseInt(gradeMatch[0], 10);
+    const subject = topic.subject?.slug || "";
+
+    if (!subject) {
+      return handleSuccess(res, { isActiveCurriculum: topic.isActiveCurriculum }, "Toggled (subject not resolvable, sync skipped)");
+    }
+
+    // Query ALL topics for this class+subject directly — avoids Subject.topics array
+    // which can miss topics created after the Subject document was first populated.
+    const allTopicsRaw = await Topic.find({
+      class: topic.class._id,
+      subject: topic.subject._id,
+      deletedAt: null,
+    })
+      .populate({ path: "subtopics", match: { deletedAt: null }, select: "name slug" })
+      .sort({ createdAt: 1 });
+
+    const allTopics = allTopicsRaw.map((t, idx) => ({
+      cognitory_id: t._id.toString(),
+      topic_key: t.slug,
+      display_name: t.name,
+      order: idx,
+      is_active: t._id.toString() === topicId
+        ? topic.isActiveCurriculum  // use fresh value for the toggled topic
+        : t.isActiveCurriculum,
+      subtopics: (t.subtopics || []).map((sub, si) => ({
+        cognitory_id: sub._id.toString(),
+        name: sub.name,
+        order: si,
+      })),
+    }));
+
+    _syncCurriculum(grade, subject, allTopics);
+
+    return handleSuccess(res, { isActiveCurriculum: topic.isActiveCurriculum }, "Curriculum toggle updated and sync fired");
+  } catch (err) {
+    console.error("toggle-curriculum error:", err);
+    return handleError(res, err, "Failed to toggle curriculum status", 500);
+  }
+});
+
 // ── Single topic + update (after content routes to avoid param conflict) ───────
 router.get("/:topicId", authMiddleware, getTopicById);
 router.patch("/:topicId", authMiddleware, isAdmin, softUpdateTopicName);
@@ -201,6 +265,25 @@ async function _syncTopicContents(topicId) {
     }).catch((err) => console.error("GradeNext sync failed:", err.message));
   } catch (err) {
     console.error("_syncTopicContents error:", err);
+  }
+}
+
+// ── Curriculum sync helper ────────────────────────────────────────────────────
+async function _syncCurriculum(grade, subject, topics) {
+  const gradeNextUrl = process.env.GRADENEXT_API_URL;
+  const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
+  if (!gradeNextUrl || !syncSecret) {
+    console.warn("_syncCurriculum: GRADENEXT_API_URL or GRADENEXT_SYNC_SECRET not set, skipping.");
+    return;
+  }
+  try {
+    fetch(`${gradeNextUrl}/api/curriculum/sync/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Sync-Secret": syncSecret },
+      body: JSON.stringify({ grade, subject, topics }),
+    }).catch((err) => console.error("GradeNext curriculum sync failed:", err.message));
+  } catch (err) {
+    console.error("_syncCurriculum error:", err);
   }
 }
 

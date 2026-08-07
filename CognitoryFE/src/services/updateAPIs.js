@@ -50,6 +50,16 @@ export const updateTopic = async (topicId, data) => {
   }
 };
 
+export const toggleTopicCurriculum = async (topicId) => {
+  try {
+    const response = await api.patch(`/topic/${topicId}/toggle-curriculum`);
+    return response?.data;
+  } catch (error) {
+    console.error("Toggle curriculum error:", error);
+    throw error;
+  }
+};
+
 export const updateSubtopic = async (subtopicId, data) => {
   try {
     const response = await api.patch(`/subtopic/${subtopicId}`, data);
