@@ -26,6 +26,10 @@ const topicSchema = new mongoose.Schema(
         ref: "Subtopic",
       },
     ],
+    isActiveCurriculum: {
+      type: Boolean,
+      default: false,
+    },
     deletedAt: {
       type: Date,
       default: null,

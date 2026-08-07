@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import Update from "./Update";
+import ToggleSwitch from "../shared/ToogleSwitch";
+import { toggleTopicCurriculum } from "../../services/updateAPIs";
 
-const TopicCard = ({ data }) => {
+const TopicCard = ({ data, onCurriculumToggle }) => {
   const {
     name,
     subject,
@@ -11,11 +13,33 @@ const TopicCard = ({ data }) => {
     subtopics = [],
     createdAt,
     _id,
+    isActiveCurriculum = false,
   } = data;
+
+  const [active, setActive] = useState(isActiveCurriculum);
+  const [toggling, setToggling] = useState(false);
 
   const image = `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
     name || _id
   )}`;
+
+  const handleToggle = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (toggling) return;
+    setToggling(true);
+    const prev = active;
+    setActive(!prev); // optimistic
+    try {
+      await toggleTopicCurriculum(_id);
+      if (onCurriculumToggle) onCurriculumToggle(_id, !prev);
+    } catch (err) {
+      setActive(prev); // revert on failure
+      console.error("Curriculum toggle failed:", err);
+    } finally {
+      setToggling(false);
+    }
+  };
 
   return (
     <div className="relative">
@@ -59,6 +83,24 @@ const TopicCard = ({ data }) => {
                 {new Date(createdAt).toLocaleDateString()}
               </span>
             </p>
+          </div>
+
+          {/* GradeNext Curriculum Toggle */}
+          <div
+            className="flex items-center justify-between mt-1 pt-2"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
+            onClick={handleToggle}
+          >
+            <span className="text-xs font-semibold" style={{ color: active ? "#a5f3fc" : "rgba(255,255,255,0.4)" }}>
+              {toggling ? "Syncing…" : active ? "Active in GradeNext" : "Inactive in GradeNext"}
+            </span>
+            <ToggleSwitch
+              value={active}
+              onChange={() => {}}
+              onColor="bg-cyan-400"
+              offColor="bg-gray-600"
+              thumbColor="bg-white"
+            />
           </div>
         </div>
       </Link>
