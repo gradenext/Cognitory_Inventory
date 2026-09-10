@@ -8,10 +8,15 @@ import {
 import { authMiddleware, isAdmin } from "../middleware/auth.js";
 import Topic from "../models/Topic.js";
 import TopicContent from "../models/TopicContent.js";
+import TopicIntroSummary from "../models/TopicIntroSummary.js";
 import handleError from "../helper/handleError.js";
 import handleSuccess from "../helper/handleSuccess.js";
 import isValidMongoId from "../helper/isMongoId.js";
 import { uploadCourseFile } from "../utils/courseUpload.js";
+
+const IMAGE_TYPES = ["jpg", "jpeg", "png", "gif", "webp"];
+const DOC_TYPES = ["pdf", "ppt", "pptx"];
+const ALLOWED_TYPES = [...DOC_TYPES, ...IMAGE_TYPES];
 
 const router = express.Router();
 
@@ -121,13 +126,13 @@ router.post("/:topicId/content/:contentId/upload", authMiddleware, isAdmin, asyn
 
     const file = req.files.file;
     const ext = file.name.split(".").pop().toLowerCase();
-    if (!["pdf", "ppt", "pptx"].includes(ext)) {
-      return handleError(res, {}, "Only PDF, PPT, and PPTX files are allowed", 400);
+    if (!ALLOWED_TYPES.includes(ext)) {
+      return handleError(res, {}, "Only PDF, PPT, PPTX, and image files (JPG, PNG, GIF, WEBP) are allowed", 400);
     }
 
     const folderPath = `Cognitory/topic-content/${content.subject_slug}/grade-${content.grade}/${content.topic_slug}`;
     const publicId = `content_${contentId}_${Date.now()}`;
-    const result = await uploadCourseFile(file.tempFilePath, publicId, folderPath);
+    const result = await uploadCourseFile(file.tempFilePath, publicId, folderPath, ext);
 
     content.file = {
       url: result.secure_url,
@@ -166,6 +171,154 @@ router.delete("/:topicId/content/:contentId", authMiddleware, isAdmin, async (re
   } catch (err) {
     console.error("deleteTopicContent error:", err);
     return handleError(res, err, "Failed to delete topic content", 500);
+  }
+});
+
+// ── Topic Intro Summaries ─────────────────────────────────────────────────────
+
+router.get("/:topicId/intro-summary", authMiddleware, async (req, res) => {
+  try {
+    const { topicId } = req.params;
+    const invalid = isValidMongoId([{ id: topicId, key: "Topic ID" }]);
+    if (invalid.length > 0) return handleError(res, {}, `Invalid ${invalid.join(", ")}`, 406);
+
+    const topic = await Topic.findOne({ _id: topicId, deletedAt: null });
+    if (!topic) return handleError(res, {}, "Topic not found", 404);
+
+    const summaries = await TopicIntroSummary.find({ topic: topicId, deletedAt: null }).sort({ order: 1, createdAt: 1 });
+    return handleSuccess(res, { total: summaries.length, summaries }, "Intro summaries fetched successfully");
+  } catch (err) {
+    console.error("getTopicIntroSummaries error:", err);
+    return handleError(res, err, "Failed to fetch intro summaries", 500);
+  }
+});
+
+router.post("/:topicId/intro-summary", authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { topicId } = req.params;
+    const { title, order } = req.body;
+
+    if (!title?.trim()) return handleError(res, {}, "Title is required", 400);
+
+    const invalid = isValidMongoId([{ id: topicId, key: "Topic ID" }]);
+    if (invalid.length > 0) return handleError(res, {}, `Invalid ${invalid.join(", ")}`, 406);
+
+    const topic = await Topic.findOne({ _id: topicId, deletedAt: null })
+      .populate("class", "name")
+      .populate("subject", "slug name");
+    if (!topic) return handleError(res, {}, "Topic not found", 404);
+
+    const classNameStr = topic.class?.name || "";
+    const gradeMatch = classNameStr.match(/\d+/);
+    if (!gradeMatch) return handleError(res, {}, "Could not resolve grade from topic's class", 400);
+    const grade = parseInt(gradeMatch[0], 10);
+    const subjectSlug = topic.subject?.slug || topic.subject?.name?.toLowerCase().replace(/\s+/g, "-") || "";
+
+    const summary = await TopicIntroSummary.create({
+      topic: topicId,
+      topic_slug: topic.slug,
+      subject_slug: subjectSlug,
+      grade,
+      title: title.trim(),
+      order: order ? Number(order) : 0,
+    });
+
+    _syncIntroSummaries(topicId);
+    return handleSuccess(res, summary, "Intro summary created successfully", 201);
+  } catch (err) {
+    console.error("createTopicIntroSummary error:", err);
+    return handleError(res, err, "Failed to create intro summary", 500);
+  }
+});
+
+router.post("/:topicId/intro-summary/:summaryId/upload", authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { topicId, summaryId } = req.params;
+
+    const invalid = isValidMongoId([
+      { id: topicId, key: "Topic ID" },
+      { id: summaryId, key: "Summary ID" },
+    ]);
+    if (invalid.length > 0) return handleError(res, {}, `Invalid ${invalid.join(", ")}`, 406);
+
+    if (!req.files?.file) return handleError(res, {}, "No file provided", 400);
+
+    const summary = await TopicIntroSummary.findOne({ _id: summaryId, topic: topicId, deletedAt: null });
+    if (!summary) return handleError(res, {}, "Intro summary not found", 404);
+
+    const file = req.files.file;
+    const ext = file.name.split(".").pop().toLowerCase();
+    if (!ALLOWED_TYPES.includes(ext)) {
+      return handleError(res, {}, "Only PDF, PPT, PPTX, and image files (JPG, PNG, GIF, WEBP) are allowed", 400);
+    }
+
+    const folderPath = `Cognitory/topic-intro-summary/${summary.subject_slug}/grade-${summary.grade}/${summary.topic_slug}`;
+    const publicId = `intro_${summaryId}_${Date.now()}`;
+    const result = await uploadCourseFile(file.tempFilePath, publicId, folderPath, ext);
+
+    summary.file = {
+      url: result.secure_url,
+      publicId: result.public_id,
+      fileType: ext,
+      originalName: file.name,
+    };
+    await summary.save();
+
+    _syncIntroSummaries(topicId);
+    return handleSuccess(res, summary, "File uploaded successfully");
+  } catch (err) {
+    console.error("uploadIntroSummaryFile error:", err);
+    return handleError(res, err, "Failed to upload file", 500);
+  }
+});
+
+router.patch("/:topicId/intro-summary/:summaryId", authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { topicId, summaryId } = req.params;
+    const { title, order } = req.body;
+
+    const invalid = isValidMongoId([
+      { id: topicId, key: "Topic ID" },
+      { id: summaryId, key: "Summary ID" },
+    ]);
+    if (invalid.length > 0) return handleError(res, {}, `Invalid ${invalid.join(", ")}`, 406);
+
+    const summary = await TopicIntroSummary.findOne({ _id: summaryId, topic: topicId, deletedAt: null });
+    if (!summary) return handleError(res, {}, "Intro summary not found", 404);
+
+    if (title !== undefined) summary.title = title.trim();
+    if (order !== undefined) summary.order = Number(order);
+    await summary.save();
+
+    _syncIntroSummaries(topicId);
+    return handleSuccess(res, summary, "Intro summary updated successfully");
+  } catch (err) {
+    console.error("updateTopicIntroSummary error:", err);
+    return handleError(res, err, "Failed to update intro summary", 500);
+  }
+});
+
+router.delete("/:topicId/intro-summary/:summaryId", authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { topicId, summaryId } = req.params;
+
+    const invalid = isValidMongoId([
+      { id: topicId, key: "Topic ID" },
+      { id: summaryId, key: "Summary ID" },
+    ]);
+    if (invalid.length > 0) return handleError(res, {}, `Invalid ${invalid.join(", ")}`, 406);
+
+    const summary = await TopicIntroSummary.findOne({ _id: summaryId, topic: topicId, deletedAt: null });
+    if (!summary) return handleError(res, {}, "Intro summary not found", 404);
+
+    summary.deletedAt = new Date();
+    await summary.save();
+
+    _syncIntroSummaries(topicId);
+    return handleSuccess(res, {}, "Intro summary deleted successfully");
+  } catch (err) {
+    console.error("deleteTopicIntroSummary error:", err);
+    return handleError(res, err, "Failed to delete intro summary", 500);
   }
 });
 
@@ -265,6 +418,46 @@ async function _syncTopicContents(topicId) {
     }).catch((err) => console.error("GradeNext sync failed:", err.message));
   } catch (err) {
     console.error("_syncTopicContents error:", err);
+  }
+}
+
+// ── Intro summary sync helper ─────────────────────────────────────────────────
+async function _syncIntroSummaries(topicId) {
+  const gradeNextUrl = process.env.GRADENEXT_API_URL;
+  const syncSecret = process.env.GRADENEXT_SYNC_SECRET;
+  if (!gradeNextUrl || !syncSecret) return;
+  try {
+    const summaries = await TopicIntroSummary.find({ topic: topicId, deletedAt: null }).sort({ order: 1 }).lean();
+    const topic = await Topic.findById(topicId).populate("class", "name").populate("subject", "slug name").lean();
+    if (!topic) return;
+
+    const classNameStr = topic.class?.name || "";
+    const gradeMatch = classNameStr.match(/\d+/);
+    if (!gradeMatch) return;
+    const grade = parseInt(gradeMatch[0], 10);
+    const subjectSlug = topic.subject?.slug || "";
+
+    const payload = {
+      topic_slug: topic.slug,
+      subject_slug: subjectSlug,
+      grade,
+      summaries: summaries.map((s) => ({
+        cognitory_id: s._id.toString(),
+        title: s.title,
+        order: s.order,
+        file_url: s.file?.url || "",
+        file_type: s.file?.fileType || "",
+        original_filename: s.file?.originalName || "",
+      })),
+    };
+
+    fetch(`${gradeNextUrl}/api/topic-intro-summary/sync/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Sync-Secret": syncSecret },
+      body: JSON.stringify(payload),
+    }).catch((err) => console.error("GradeNext intro summary sync failed:", err.message));
+  } catch (err) {
+    console.error("_syncIntroSummaries error:", err);
   }
 }
 

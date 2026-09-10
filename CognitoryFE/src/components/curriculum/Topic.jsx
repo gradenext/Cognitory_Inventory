@@ -4,11 +4,13 @@ import { useQueryObject } from "../../services/query";
 import Add from "./Add";
 import SubtopicCard from "./SubtopicCard";
 import TopicContentManager from "./TopicContentManager";
-import { Loader2, BookOpen, FileText } from "lucide-react";
+import TopicIntroSummaryManager from "./TopicIntroSummaryManager";
+import { Loader2, BookOpen, FileText, Sparkles } from "lucide-react";
 
 const TABS = [
-  { id: "subtopics", label: "Subtopics", icon: BookOpen },
-  { id: "content",   label: "Content",   icon: FileText },
+  { id: "subtopics",    label: "Subtopics",    icon: BookOpen },
+  { id: "content",      label: "Content",      icon: FileText },
+  { id: "introduction", label: "Introduction", icon: Sparkles },
 ];
 
 const Topic = () => {
@@ -67,6 +69,13 @@ const Topic = () => {
       {activeTab === "content" && (
         <div className="w-full max-w-2xl">
           <TopicContentManager topicId={topicId} />
+        </div>
+      )}
+
+      {/* Introduction tab */}
+      {activeTab === "introduction" && (
+        <div className="w-full max-w-2xl">
+          <TopicIntroSummaryManager topicId={topicId} />
         </div>
       )}
     </div>

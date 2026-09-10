@@ -113,8 +113,10 @@ export const uploadTopicContentFile = async (req, res) => {
 
     const file = req.files.file;
     const ext = file.name.split(".").pop().toLowerCase();
-    if (!["pdf", "ppt", "pptx"].includes(ext)) {
-      return handleError(res, {}, "Only PDF, PPT, and PPTX files are allowed", 400);
+    const IMAGE_TYPES = ["jpg", "jpeg", "png", "gif", "webp"];
+    const DOC_TYPES = ["pdf", "ppt", "pptx"];
+    if (![...DOC_TYPES, ...IMAGE_TYPES].includes(ext)) {
+      return handleError(res, {}, "Only PDF, PPT, PPTX, and image files (JPG, PNG, GIF, WEBP) are allowed", 400);
     }
 
     const folderPath = `Cognitory/topic-content/${content.subject_slug}/grade-${content.grade}/${content.topic_slug}`;

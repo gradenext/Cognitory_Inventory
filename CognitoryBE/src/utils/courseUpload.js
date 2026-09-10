@@ -20,6 +20,11 @@ const MIME_TYPES = {
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   mp4: "video/mp4",
   mp3: "audio/mpeg",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
 };
 
 const validateFile = async (filePath) => {
