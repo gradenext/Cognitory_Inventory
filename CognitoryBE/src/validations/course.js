@@ -6,6 +6,7 @@ export const courseSchema = z.object({
   description: z.string().optional(),
   order: z.number().optional(),
   price: z.number().min(0).optional(),
+  totalSessions: z.number().int().min(0).optional(),
   stripe_product_id: z.string().optional(),
   stripe_price_id: z.string().optional(),
 });
@@ -17,6 +18,7 @@ export const updateCourseSchema = z.object({
   order: z.number().optional(),
   status: z.enum(["draft", "published"]).optional(),
   price: z.number().min(0).optional(),
+  totalSessions: z.number().int().min(0).optional(),
   stripe_product_id: z.string().optional(),
   stripe_price_id: z.string().optional(),
 });

@@ -11,6 +11,7 @@ const EditCourseModal = ({ course, onClose, onSuccess }) => {
     description: course.description || "",
     order: course.order ?? 0,
     status: course.status || "draft",
+    totalSessions: course.totalSessions ?? 0,
     priceUsd: existingPriceUsd,
     stripe_product_id: course.stripe_product_id || "",
     stripe_price_id: course.stripe_price_id || "",
@@ -33,6 +34,7 @@ const EditCourseModal = ({ course, onClose, onSuccess }) => {
         description: form.description,
         order: Number(form.order),
         status: form.status,
+        totalSessions: Number(form.totalSessions) || 0,
         price: form.priceUsd !== "" ? Math.round(Number(form.priceUsd) * 100) : 0,
         stripe_product_id: form.stripe_product_id.trim(),
         stripe_price_id: form.stripe_price_id.trim(),
@@ -112,6 +114,23 @@ const EditCourseModal = ({ course, onClose, onSuccess }) => {
               onChange={set("order")}
               className={inputCls}
             />
+          </div>
+
+          {/* Live Sessions Included */}
+          <div>
+            <label className={labelCls}>Live Sessions Included</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.totalSessions}
+              onChange={set("totalSessions")}
+              placeholder="e.g. 24"
+              className={inputCls}
+            />
+            <p className="text-white/30 text-xs mt-1">
+              Number of live tutoring sessions a buyer gets. Scheduling stops once these are used up. 0 = none.
+            </p>
           </div>
 
           {/* ── Pricing & Stripe ── */}

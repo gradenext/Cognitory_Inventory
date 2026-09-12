@@ -51,6 +51,7 @@ async function buildSyncPayload(courseId) {
     thumbnail_url: course.thumbnail?.url || "",
     order: course.order,
     price: course.price || 0,
+    total_sessions: course.totalSessions || 0,
     stripe_product_id: course.stripe_product_id || "",
     stripe_price_id: course.stripe_price_id || "",
     modules: modulesWithLessons,
@@ -83,12 +84,13 @@ function fireUnsync(cognitory_id) {
 
 export const createCourse = async (req, res) => {
   try {
-    const { title, type, description, order, price, stripe_product_id, stripe_price_id } = req.body;
+    const { title, type, description, order, price, totalSessions, stripe_product_id, stripe_price_id } = req.body;
 
     const validation = validateWithZod(courseSchema, {
       title, type, description,
       order: order ? Number(order) : undefined,
       price: price !== undefined ? Number(price) : undefined,
+      totalSessions: totalSessions !== undefined ? Number(totalSessions) : undefined,
       stripe_product_id,
       stripe_price_id,
     });
@@ -102,6 +104,7 @@ export const createCourse = async (req, res) => {
       description,
       order: order ? Number(order) : 0,
       price: price !== undefined ? Number(price) : 0,
+      totalSessions: totalSessions !== undefined ? Number(totalSessions) : 0,
       stripe_product_id: stripe_product_id || '',
       stripe_price_id: stripe_price_id || '',
       createdBy: req.user.userId,
@@ -173,7 +176,7 @@ export const getCourseById = async (req, res) => {
 export const updateCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { title, type, description, order, status, price, stripe_product_id, stripe_price_id } = req.body;
+    const { title, type, description, order, status, price, totalSessions, stripe_product_id, stripe_price_id } = req.body;
 
     const invalid = isValidMongoId([{ id: courseId, key: "Course ID" }]);
     if (invalid.length > 0) {
@@ -187,6 +190,7 @@ export const updateCourse = async (req, res) => {
       order: order !== undefined ? Number(order) : undefined,
       status,
       price: price !== undefined ? Number(price) : undefined,
+      totalSessions: totalSessions !== undefined ? Number(totalSessions) : undefined,
       stripe_product_id,
       stripe_price_id,
     });
@@ -201,6 +205,7 @@ export const updateCourse = async (req, res) => {
     if (order !== undefined) updates.order = Number(order);
     if (status !== undefined) updates.status = status;
     if (price !== undefined) updates.price = Number(price);
+    if (totalSessions !== undefined) updates.totalSessions = Number(totalSessions);
     if (stripe_product_id !== undefined) updates.stripe_product_id = stripe_product_id;
     if (stripe_price_id !== undefined) updates.stripe_price_id = stripe_price_id;
 

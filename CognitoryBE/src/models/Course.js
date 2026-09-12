@@ -41,6 +41,13 @@ const courseSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // Number of live tutoring sessions included with a purchase of this course.
+    // Synced to GradeNext as `total_sessions`; drives the course session quota.
+    totalSessions: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     stripe_product_id: {
       type: String,
       trim: true,
