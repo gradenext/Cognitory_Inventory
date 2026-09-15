@@ -30,6 +30,10 @@ import UserQuestion from "./components/admin/UserQuestion";
 import EditQuestion from "./components/shared/EditQuestion";
 import Courses from "./components/courses/Courses";
 import CourseDetail from "./components/courses/CourseDetail";
+import BlogPosts from "./components/blog/BlogPosts";
+import BlogPostEditor from "./components/blog/BlogPostEditor";
+import BlogAuthors from "./components/blog/BlogAuthors";
+import BlogCategories from "./components/blog/BlogCategories";
 
 function App() {
   const token = useSelector((state) => state?.user?.token);
@@ -84,6 +88,11 @@ function App() {
             />
             <Route path="courses" element={<Courses />} />
             <Route path="courses/:courseId" element={<CourseDetail />} />
+            <Route path="blog" element={<BlogPosts />} />
+            <Route path="blog/new" element={<BlogPostEditor />} />
+            <Route path="blog/posts/:postId" element={<BlogPostEditor />} />
+            <Route path="blog/authors" element={<BlogAuthors />} />
+            <Route path="blog/categories" element={<BlogCategories />} />
             <Route
               path="*"
               element={<Navigate to="/admin/my-profile" replace />}
@@ -117,6 +126,11 @@ function App() {
             />
             <Route path="courses" element={<Courses />} />
             <Route path="courses/:courseId" element={<CourseDetail />} />
+            <Route path="blog" element={<BlogPosts />} />
+            <Route path="blog/new" element={<BlogPostEditor />} />
+            <Route path="blog/posts/:postId" element={<BlogPostEditor />} />
+            <Route path="blog/authors" element={<BlogAuthors />} />
+            <Route path="blog/categories" element={<BlogCategories />} />
             <Route
               path="*"
               element={<Navigate to="/super/my-profile" replace />}

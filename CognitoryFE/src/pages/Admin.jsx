@@ -27,6 +27,10 @@ const Admin = () => {
       label: "Courses",
       path: "courses",
     },
+    {
+      label: "Blog",
+      path: "blog",
+    },
   ];
 
   return (
