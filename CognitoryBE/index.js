@@ -18,6 +18,7 @@ import utilRoutes from "./src/routes/utilRoutes.js";
 import analyticsRoutes from "./src/routes/analyticsRoutes.js";
 import miscellnousRoutes from "./src/routes/miscellnousRoutes.js";
 import courseRoutes from "./src/routes/courseRoutes.js";
+import blogRoutes from "./src/routes/blogRoutes.js";
 
 dotenv.config();
 
@@ -57,6 +58,7 @@ app.use("/api/v1/util", utilRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
 app.use("/api/v1/mis", miscellnousRoutes);
 app.use("/api/v1/course", courseRoutes);
+app.use("/api/v1/blog", blogRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).send(`<div>Server running at PORT ${PORT}</div>`);
