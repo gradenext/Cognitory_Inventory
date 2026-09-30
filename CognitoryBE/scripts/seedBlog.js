@@ -203,7 +203,7 @@ Home practice works well for small gaps, but it is worth getting extra support i
 
 Your options range from asking the teacher for suggestions to hiring a private tutor, enrolling at a learning center or using an online platform. If cost is part of the decision, our guide to [how much after-school tutoring costs](/blog/after-school-tutoring-cost) compares the typical options side by side.
 
-GradeNext’s [online math tutoring for grades 1–8](/online-math-tutoring) starts with a placement test that finds your child’s level in each topic, then builds a personal learning path with adaptive daily practice and smart revisions. Plans with weekly live 1:1 tutor sessions add a mentor who explains the reasoning and keeps your child motivated. You can see how Math, Science and Language Arts fit together on the [Regular Subjects page](/regular).
+GradeNext’s [online math tutoring for grades 1–8](/online-math-tutoring) starts with a placement test that finds your child’s level in each topic, then builds a personal learning path with adaptive daily practice and smart revisions. Plans with weekly live 1:1 tutor sessions add a mentor who explains the reasoning and keeps your child motivated. You can see how Math, Science and Language Arts fit together on the [Regular Subjects page](/regular). If you’re weighing GradeNext against a worksheet-based program, see how it’s [compared to Kumon](/kumon-alternative).
 
 ## A simple weekly plan to start this week
 
@@ -481,7 +481,7 @@ You don’t need a credit card, and there is nothing to install — GradeNext wo
 
 Every child starts with a short placement test. Instead of assuming your child is exactly at grade level, it checks their understanding topic by topic in each subject.
 
-The results do two things. First, they show you where your child is strong and where the gaps are. Second, they let the AI build a personal learning path, so practice starts at the right level from the very first session — not too easy, not frustratingly hard.
+The results do two things. First, they show you where your child is strong and where the gaps are. Second, they let the AI build a personal learning path, so practice starts at the right level from the very first session — not too easy, not frustratingly hard. It’s the same placement test that kicks off GradeNext’s [online math tutoring for grades 1–8](/online-math-tutoring), whichever subject your child starts with.
 
 ## Week 1: Building a daily practice habit
 
@@ -518,7 +518,7 @@ When the trial ends, you can choose the plan that fits your family, or simply st
 
 You can switch or cancel anytime, and full details are on the [GradeNext pricing page](/pricing). If you are comparing GradeNext with other options, our guide to [after-school tutoring costs](/blog/after-school-tutoring-cost) puts typical prices side by side.
 
-Interested in coding too? Coding courses are separate one-time purchases starting at $199. Read [how to get kids interested in coding](/blog/how-to-get-kids-interested-in-coding) for tips on choosing the right first course.
+Interested in coding too? Our [online coding classes for kids](/online-coding-classes-for-kids) are separate one-time purchases starting at $199. Read [how to get kids interested in coding](/blog/how-to-get-kids-interested-in-coding) for tips on choosing the right first course.
 
 ## Tips to get the most from your free trial
 
