@@ -34,6 +34,7 @@ import BlogPosts from "./components/blog/BlogPosts";
 import BlogPostEditor from "./components/blog/BlogPostEditor";
 import BlogAuthors from "./components/blog/BlogAuthors";
 import BlogCategories from "./components/blog/BlogCategories";
+import Ads from "./components/ads/Ads";
 
 function App() {
   const token = useSelector((state) => state?.user?.token);
@@ -93,6 +94,7 @@ function App() {
             <Route path="blog/posts/:postId" element={<BlogPostEditor />} />
             <Route path="blog/authors" element={<BlogAuthors />} />
             <Route path="blog/categories" element={<BlogCategories />} />
+            <Route path="ads" element={<Ads />} />
             <Route
               path="*"
               element={<Navigate to="/admin/my-profile" replace />}
@@ -131,6 +133,7 @@ function App() {
             <Route path="blog/posts/:postId" element={<BlogPostEditor />} />
             <Route path="blog/authors" element={<BlogAuthors />} />
             <Route path="blog/categories" element={<BlogCategories />} />
+            <Route path="ads" element={<Ads />} />
             <Route
               path="*"
               element={<Navigate to="/super/my-profile" replace />}

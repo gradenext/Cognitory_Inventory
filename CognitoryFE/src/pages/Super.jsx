@@ -31,6 +31,10 @@ const Super = () => {
       label: "Blog",
       path: "blog",
     },
+    {
+      label: "Ads",
+      path: "ads",
+    },
   ];
 
   return (

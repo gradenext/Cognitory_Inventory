@@ -31,6 +31,10 @@ const Admin = () => {
       label: "Blog",
       path: "blog",
     },
+    {
+      label: "Ads",
+      path: "ads",
+    },
   ];
 
   return (
